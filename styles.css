@@ -69,3 +69,9 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-betw
   .two{grid-template-columns:minmax(0,1fr)}.ticks{columns:1}
 }
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}}
+
+.soon{min-height:100vh;min-height:100svh;display:grid;place-content:center;justify-items:center;gap:14px;text-align:center;padding-block:32px;padding-left:var(--gutter-l);padding-right:var(--gutter-r)}
+.soon h1 img{width:min(420px,78vw);height:auto;margin-bottom:12px}
+.soon .eyebrow{font-size:38px;margin:0}
+.soon h2{font-size:clamp(28px,6vw,42px)}
+.soon .lead{margin:0 0 8px}
