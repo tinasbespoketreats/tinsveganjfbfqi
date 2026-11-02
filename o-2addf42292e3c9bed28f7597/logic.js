@@ -1,4 +1,5 @@
 /* ---------- pure logic (tested) ---------- */
+const SOURCES = ['Too Good To Go', 'Uber Eats', 'Market trading'];
 const P = v => Math.round((parseFloat(v) || 0) * 100);
 const gbp = p => (p < 0 ? '-£' : '£') + (Math.abs(p) / 100).toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -27,15 +28,22 @@ function jobs(o) {
   return out;
 }
 function month(ym, orders, expenses) {
-  const r = {income: 0, delivery: 0, orderCosts: 0, other: 0, received: 0, orders: 0};
+  const r = {orderIncome: 0, delivery: 0, orderCosts: 0, other: 0, otherIncome: 0, otherCosts: 0, received: 0, orders: 0, sources: {}};
+  SOURCES.forEach(s => r.sources[s] = {income: 0, expenses: 0});
   for (const o of orders) {
     const s = sums(o);
-    if (o.status !== 'Cancelled' && (o.eventDate || '').startsWith(ym)) { r.income += s.income; r.delivery += s.delivery; r.orderCosts += s.costs; r.orders++; }
+    if (o.status !== 'Cancelled' && (o.eventDate || '').startsWith(ym)) { r.orderIncome += s.income; r.delivery += s.delivery; r.orderCosts += s.costs; r.orders++; }
     if ((o.depositDate || (o.createdAt || '').slice(0, 10)).startsWith(ym)) r.received += Math.min(s.deposit, o.status === 'Cancelled' ? s.deposit : s.income);
     if (o.balancePaid && (o.balancePaidDate || '').startsWith(ym)) r.received += Math.max(0, s.income - s.deposit);
   }
-  for (const e of expenses) if ((e.date || '').startsWith(ym)) r.other += P(e.amount);
-  r.expenses = r.orderCosts + r.other; r.profit = r.income - r.expenses;
+  for (const e of expenses) {
+    if (!(e.date || '').startsWith(ym)) continue;
+    const a = P(e.amount), src = e.source && (r.sources[e.source] ||= {income: 0, expenses: 0});
+    if (e.entryType === 'income') { r.otherIncome += a; r.received += a; if (src) src.income += a; }
+    else if (src) { src.expenses += a; r.otherCosts += a; }
+    else r.other += a;
+  }
+  r.income = r.orderIncome + r.otherIncome; r.expenses = r.orderCosts + r.otherCosts + r.other; r.profit = r.income - r.expenses;
   return r;
 }
 function calUrl(title, details, date, time) {
@@ -46,4 +54,4 @@ function calUrl(title, details, date, time) {
   return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(title) + '&dates=' + dates + '&ctz=Europe/London&details=' + encodeURIComponent(details);
 }
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-if (typeof module !== 'undefined') module.exports = {P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays};
+if (typeof module !== 'undefined') module.exports = {SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays};

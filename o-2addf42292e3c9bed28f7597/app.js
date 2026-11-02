@@ -193,15 +193,28 @@ function viewMoney() {
   const rows = Array.from({length: 12}, (_, i) => { const ym = S.year + '-' + String(i + 1).padStart(2, '0'); return {ym, ...month(ym, S.orders, S.expenses)}; });
   const tot = k => rows.reduce((t, r) => t + r[k], 0), m = month(S.ym, S.orders, S.expenses), name = fmt(S.ym + '-15', {month: 'long', year: 'numeric'});
   const mo = S.orders.filter(o => o.status !== 'Cancelled' && (o.eventDate || '').startsWith(S.ym));
-  const ex = S.expenses.filter(e => (e.date || '').startsWith(S.ym)).sort((a, b) => a.date.localeCompare(b.date));
-  app.innerHTML = `${dataNote()}<div class="row between"><h2>${esc(name)}</h2><div class="row"><select id="yr" aria-label="Year" style="width:auto">${yrs.map(y => `<option ${y === S.year ? 'selected' : ''}>${y}</option>`).join('')}</select>${S.downloads ? '<button id="csvO">Save orders (CSV)</button><button id="csvE">Save expenses (CSV)</button>' : ''}</div></div>
+  const inMonth = S.expenses.filter(e => (e.date || '').startsWith(S.ym)).sort((a, b) => a.date.localeCompare(b.date));
+  const ex = inMonth.filter(e => !e.source), oe = inMonth.filter(e => e.source);
+  const srcRow = (n, inc, exp) => `<tr><td>${esc(n)}</td><td>${gbp(inc)}</td><td>${gbp(exp)}</td><td class="${inc - exp < 0 ? 'neg' : ''}">${gbp(inc - exp)}</td></tr>`;
+  app.innerHTML = `${dataNote()}<div class="row between"><h2>${esc(name)}</h2><div class="row"><select id="yr" aria-label="Year" style="width:auto">${yrs.map(y => `<option ${y === S.year ? 'selected' : ''}>${y}</option>`).join('')}</select>${S.downloads ? '<button id="csvO">Save orders (CSV)</button><button id="csvE">Save earnings and expenses (CSV)</button>' : ''}</div></div>
   <div class="stats">
-    <div class="stat"><b>${gbp(m.income)}</b><span>Order income, ${gbp(m.delivery)} of it delivery</span></div>
+    <div class="stat"><b>${gbp(m.income)}</b><span>Income: ${gbp(m.orderIncome)} customer orders, ${gbp(m.otherIncome)} other earnings</span></div>
     <div class="stat"><b>${gbp(m.expenses)}</b><span>Expenses</span></div>
     <div class="stat"><b class="${m.profit < 0 ? 'neg' : ''}">${gbp(m.profit)}</b><span>Profit</span></div>
     <div class="stat"><b>${gbp(m.received)}</b><span>Money received this month</span></div>
   </div>
-  <p class="small muted">Orders count in the month of their event. Money received counts deposits and balances in the month they were paid.</p>
+  <p class="small muted">Orders count in the month of their event. Money received counts deposits and balances in the month they were paid, plus other earnings on the date you enter.</p>
+  <section class="stack"><h3>Where your money came from in ${esc(name)}</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Income</th><th>Expenses</th><th>Profit</th></tr></thead><tbody>
+  ${srcRow('Customer orders', m.orderIncome, m.orderCosts)}${Object.entries(m.sources).map(([n, v]) => srcRow(n, v.income, v.expenses)).join('')}${srcRow('Business expenses', 0, m.other)}
+  </tbody><tfoot><tr><td>Total</td><td>${gbp(m.income)}</td><td>${gbp(m.expenses)}</td><td class="${m.profit < 0 ? 'neg' : ''}">${gbp(m.profit)}</td></tr></tfoot></table></div></section>
+  <section class="card"><h3>Add other earnings</h3><p class="small muted">Record money in and costs for Too Good To Go, Uber Eats and market trading, such as sales, app fees, stall fees and stock.</p>
+  <form id="of" novalidate style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end">
+    ${field('oeDate', today(), 'Date', 'date')}
+    <div class="f"><label for="oeSrc">Where from?</label><select id="oeSrc">${SOURCES.map(s => `<option>${s}</option>`).join('')}</select></div>
+    <div class="f"><label for="oeType">Income or expense?</label><select id="oeType"><option value="income">Income</option><option value="expense">Expense</option></select></div>
+    ${field('oeItem', '', 'Details')}${moneyInput('oeAmt', '', 'Amount')}<button class="primary" type="submit">Add entry</button>
+  </form><p class="err" id="oeErr" role="alert" hidden></p></section>
+  <section class="stack"><h3>Other earnings in ${esc(name)}</h3>${oe.length ? `<div class="scroll"><table><thead><tr><th>Details</th><th>Where from</th><th>Type</th><th>Date</th><th>Amount</th><th></th></tr></thead><tbody>${oe.map(e => `<tr><td style="white-space:normal">${esc(e.item)}</td><td>${esc(e.source)}</td><td><span class="pill ${e.entryType === 'income' ? 'done' : 'pay'}">${e.entryType === 'income' ? 'Income' : 'Expense'}</span></td><td>${fmt(e.date, {day: 'numeric', month: 'short'})}</td><td>${gbp(P(e.amount))}</td><td><button class="link" data-delex="${esc(e.id)}">Remove</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nothing added this month. Use the form above to add your first entry.</div>'}</section>
   <section class="stack"><h3>${esc(S.year)} by month</h3><div class="scroll"><table><thead><tr><th>Month</th><th>Orders</th><th>Income</th><th>Expenses</th><th>Profit</th><th>Received</th></tr></thead><tbody>
   ${rows.map(r => `<tr class="pick ${r.ym === S.ym ? 'sel' : ''}" data-ym="${r.ym}" tabindex="0"><td>${fmt(r.ym + '-15', {month: 'short'})}</td><td>${r.orders}</td><td>${gbp(r.income)}</td><td>${gbp(r.expenses)}</td><td class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</td><td>${gbp(r.received)}</td></tr>`).join('')}
   </tbody><tfoot><tr><td>Year</td><td>${tot('orders')}</td><td>${gbp(tot('income'))}</td><td>${gbp(tot('expenses'))}</td><td class="${tot('profit') < 0 ? 'neg' : ''}">${gbp(tot('profit'))}</td><td>${gbp(tot('received'))}</td></tr></tfoot></table></div></section>
@@ -220,9 +233,15 @@ function viewMoney() {
     if (!S.db) { err.textContent = "This can't save right now."; err.hidden = false; return; }
     try { await S.db.collection('expenses').add({date, item, amount, category: q('exCat').value, createdAt: new Date().toISOString()}); S.ym = date.slice(0, 7); S.year = date.slice(0, 4); toast('Expense added'); }
     catch (x) { err.textContent = "That didn't save. Check your connection and try again."; err.hidden = false; } });
+  app.querySelector('#of').addEventListener('submit', async ev => { ev.preventDefault();
+    const q = id => app.querySelector('#' + id), err = q('oeErr'), item = q('oeItem').value.trim(), amount = q('oeAmt').value, date = q('oeDate').value;
+    if (!item || !P(amount) || !date) { err.textContent = 'Add a date, details and the amount.'; err.hidden = false; return; }
+    if (!S.db || S.failed) { err.textContent = "This can't save right now."; err.hidden = false; return; }
+    try { S.ym = date.slice(0, 7); S.year = date.slice(0, 4); await S.db.collection('expenses').add({date, item, amount, source: q('oeSrc').value, entryType: q('oeType').value, createdAt: new Date().toISOString()}); toast('Entry added'); }
+    catch (x) { err.textContent = "That didn't save. Check your connection and try again."; err.hidden = false; } });
   const csv = async (name, head, rows) => { try { await S.downloads.save({filename: name, data: [head, ...rows].map(r => r.map(csvCell).join(',')).join('\n')}); toast('File saved'); } catch (e) { if (e?.code !== 'declined') toast("That file couldn't be saved here."); } };
   app.querySelector('#csvO')?.addEventListener('click', () => csv('tinas-orders.csv', ['Event date', 'Customer', 'Email', 'Phone', 'Status', 'Biscuits', 'Cupcakes', 'Details', 'Colours', 'Allergies', 'Make date', 'Delivery or collection', 'Income', 'Expenses', 'Profit', 'Deposit', 'Outstanding'], S.orders.map(o => { const s = sums(o); return [o.eventDate, o.customerName, o.email, o.phone, o.status, o.biscuits ? o.biscuitQty : '', o.cupcakes ? o.cupcakeQty : '', o.details, o.colourScheme, o.allergies, o.makeDate, o.fulfilment, s.income / 100, s.costs / 100, s.profit / 100, s.deposit / 100, s.outstanding / 100]; })));
-  app.querySelector('#csvE')?.addEventListener('click', () => csv('tinas-expenses.csv', ['Date', 'What', 'Type', 'Amount'], S.expenses.map(e => [e.date, e.item, e.category, e.amount])));
+  app.querySelector('#csvE')?.addEventListener('click', () => csv('tinas-earnings-and-expenses.csv', ['Date', 'What', 'Type', 'Where from', 'Income or expense', 'Amount'], S.expenses.map(e => [e.date, e.item, e.category, e.source || 'Business', e.entryType === 'income' ? 'Income' : 'Expense', e.amount])));
 }
 
 /* events */
