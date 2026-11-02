@@ -68,7 +68,7 @@ legend{font:400 19px/1.2 var(--display);padding:0 6px;color:var(--accent)}
 .f{display:grid;gap:4px;min-width:0;align-content:start}
 .f>label,.lab{font-weight:700;font-size:14.5px}
 .hint{font-size:13.5px;color:var(--muted)}
-input[type=text],input[type=email],input[type=tel],input[type=date],input[type=time],input[type=number],input[type=search],select,textarea{font:inherit;width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--fg)}
+input[type=text],input[type=password],input[type=email],input[type=tel],input[type=date],input[type=time],input[type=number],input[type=search],select,textarea{font:inherit;width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--fg)}
 textarea{min-height:110px;resize:vertical}
 .money{position:relative}.money::before{content:"£";position:absolute;left:10px;top:9px;color:var(--muted)}.money input{padding-left:24px}
 .tick{display:flex;gap:8px;align-items:center;font-weight:600;padding:6px 0}
