@@ -106,7 +106,7 @@ function viewForm(o) {
   app.innerHTML = `${dataNote().includes('bad') ? dataNote() : ''}<h2>${editing ? 'Edit ' + esc(o.customerName) : 'New order'}</h2>
   <form id="f" novalidate>
   <fieldset><legend>Customer</legend>
-    <div class="full">${field('customerName', o.customerName, 'Name')}</div>${field('email', o.email, 'Email', 'email')}${field('instagram', o.instagram, 'Instagram', 'text', 'Their username, e.g. @name')}${field('phone', o.phone, 'Phone number', 'tel')}
+    <div class="full">${field('customerName', o.customerName, 'Name')}<div id="nameHits" class="suggest" hidden></div></div>${field('email', o.email, 'Email', 'email')}${field('instagram', o.instagram, 'Instagram', 'text', 'Their username, e.g. @name')}${field('phone', o.phone, 'Phone number', 'tel')}
   </fieldset>
   <fieldset><legend>Dates</legend>
     ${field('eventDate', o.eventDate, 'Date of event', 'date')}${field('makeDate', o.makeDate, 'Date I need to make these', 'date')}
@@ -177,6 +177,25 @@ function viewForm(o) {
     return d;
   }
   sync();
+  if (!editing) {
+    const nameIn = f.querySelector('#customerName'), hits = f.querySelector('#nameHits');
+    nameIn.setAttribute('autocomplete', 'off');
+    const people = () => { const m = new Map();
+      [...S.orders].filter(x => !x.example && x.customerName).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
+        .forEach(x => m.set(x.customerName.trim().toLowerCase() + '|' + (x.email || x.instagram || x.phone || '').toLowerCase(), x));
+      return [...m.values()].reverse(); };
+    const showHits = () => { const q = nameIn.value.trim().toLowerCase();
+      const list = q ? people().filter(x => x.customerName.toLowerCase().split(/\s+/).some(w => w.startsWith(q)) || x.customerName.toLowerCase().startsWith(q)).slice(0, 6) : [];
+      hits.hidden = !list.length; hits.replaceChildren(...list.map(x => { const b = document.createElement('button'); b.type = 'button';
+        b.innerHTML = `<strong>${esc(x.customerName)}</strong><span class="hint">${esc([x.instagram, x.email, x.phone].filter(Boolean).join(' · ') || 'No contact details saved')}</span>`;
+        b.onclick = () => { ['customerName', 'email', 'instagram', 'phone', 'deliveryAddress', 'allergies'].forEach(k => { if (x[k]) f[k].value = x[k]; }); hits.hidden = true; f.dispatchEvent(new Event('input', {bubbles: true}));
+          toast(x.allergies ? 'Details added. Check the allergies are still right.' : 'Customer details added'); };
+        return b; })); };
+    nameIn.addEventListener('input', showHits);
+    nameIn.addEventListener('focus', showHits);
+    nameIn.addEventListener('keydown', e => { if (e.key === 'Escape') hits.hidden = true; });
+    f.addEventListener('focusin', e => { if (e.target !== nameIn && !hits.contains(e.target)) hits.hidden = true; });
+  }
   f.addEventListener('input', () => { const d = sync(); S.dirty = true; if (!editing) { try { localStorage.setItem(DRAFT, JSON.stringify(d)); f.querySelector('#drafted').textContent = 'Draft kept on this device'; } catch (e) {} } });
   f.addEventListener('change', sync);
   f.querySelector('#addLine').onclick = () => addLine();

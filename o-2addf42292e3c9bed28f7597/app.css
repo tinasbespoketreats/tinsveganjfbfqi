@@ -106,3 +106,7 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:0}
 #gate img{width:min(250px,70vw);height:auto;filter:var(--logo)}
 #login{width:min(340px,86vw);gap:12px}
 #foot{max-width:888px;margin:auto;padding-block:0 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.suggest{display:grid;margin-top:6px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.suggest button{display:grid;gap:1px;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;font-weight:400;padding:9px 11px;min-width:0;overflow-wrap:anywhere}
+.suggest button:last-child{border-bottom:0}
+.suggest button:hover{background:var(--sunk)}
