@@ -57,7 +57,7 @@ function viewHome() {
 function viewOrders() {
   const q = S.q.toLowerCase();
   const list = S.orders.filter(o => S.status === 'All' || (S.status === 'Active' ? !['Completed', 'Cancelled'].includes(o.status) : o.status === S.status))
-    .filter(o => !q || [o.customerName, o.email, o.phone, o.details, o.colourScheme].join(' ').toLowerCase().includes(q))
+    .filter(o => !q || [o.customerName, o.email, o.instagram, o.phone, o.details, o.colourScheme].join(' ').toLowerCase().includes(q))
     .sort((a, b) => (a.eventDate || '').localeCompare(b.eventDate || ''));
   app.innerHTML = `${dataNote()}<div class="row between"><h2>Orders</h2><a class="btn" href="#new-order">Add an order</a></div>
   <div class="row"><input type="search" id="q" aria-label="Search orders" placeholder="Search name, theme, colour…" value="${esc(S.q)}" style="flex:1 1 200px">
@@ -79,7 +79,7 @@ function viewOrder() {
   <div class="row">${s.outstanding ? `<button class="primary" id="paid">Mark balance as paid</button>` : o.balancePaid ? '<button id="unpaid">Undo balance paid</button>' : ''}<button id="edit">Edit order</button></div>
   <section class="card"><h3>Add to Google Calendar</h3><div class="row">${cal.length ? cal.map(([l, u]) => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">${esc(l)}</a>`).join('') : '<span class="muted">Add dates to the order to use this.</span>'}</div></section>
   <section class="card detail">
-    ${item('Email', o.email)}${item('Phone', o.phone)}${item('Make on', fmt(o.makeDate))}${item(h.label, [fmt(h.date), h.time].filter(Boolean).join(' at '))}
+    ${item('Email', o.email)}${item('Instagram', o.instagram)}${item('Phone', o.phone)}${item('Make on', fmt(o.makeDate))}${item(h.label, [fmt(h.date), h.time].filter(Boolean).join(' at '))}
     ${item('Delivery address', o.fulfilment === 'delivery' && o.deliveryAddress)}${item('Delivery location', o.fulfilment === 'delivery' && o.deliveryLocation)}
     ${item('Colour scheme', o.colourScheme)}${item('Packaging', [o.cellophane ? 'Wrapped in cellophane' : 'No cellophane', o.bow === 'with' ? 'with a ' + (o.bowColour || '') + ' bow' : o.bow === 'without' ? 'without a bow' : ''].filter(Boolean).join(', '))}
     ${item('Deposit paid on', s.deposit ? fmt(o.depositDate) : '')}${item('Paid in full on', o.balancePaid ? fmt(o.balancePaidDate) : '')}${item('Balance due on', s.outstanding ? fmt(dueDate(o)) : '')}
@@ -106,7 +106,7 @@ function viewForm(o) {
   app.innerHTML = `${dataNote().includes('bad') ? dataNote() : ''}<h2>${editing ? 'Edit ' + esc(o.customerName) : 'New order'}</h2>
   <form id="f" novalidate>
   <fieldset><legend>Customer</legend>
-    <div class="full">${field('customerName', o.customerName, 'Name')}</div>${field('email', o.email, 'Email', 'email')}${field('phone', o.phone, 'Phone number', 'tel')}
+    <div class="full">${field('customerName', o.customerName, 'Name')}</div>${field('email', o.email, 'Email', 'email')}${field('instagram', o.instagram, 'Instagram', 'text', 'Their username, e.g. @name')}${field('phone', o.phone, 'Phone number', 'tel')}
   </fieldset>
   <fieldset><legend>Dates</legend>
     ${field('eventDate', o.eventDate, 'Date of event', 'date')}${field('makeDate', o.makeDate, 'Date I need to make these', 'date')}
@@ -257,7 +257,7 @@ function viewMoney() {
     try { S.ym = date.slice(0, 7); S.year = date.slice(0, 4); await S.db.collection('expenses').add({date, item, amount, source: q('oeSrc').value, entryType: q('oeType').value, createdAt: new Date().toISOString()}); toast('Entry added'); }
     catch (x) { err.textContent = "That didn't save. Check your connection and try again."; err.hidden = false; } });
   const csv = async (name, head, rows) => { try { await S.downloads.save({filename: name, data: [head, ...rows].map(r => r.map(csvCell).join(',')).join('\n')}); toast('File saved'); } catch (e) { if (e?.code !== 'declined') toast("That file couldn't be saved here."); } };
-  app.querySelector('#csvO')?.addEventListener('click', () => csv('tinas-orders.csv', ['Event date', 'Customer', 'Email', 'Phone', 'Status', 'Biscuits', 'Cupcakes', 'Details', 'Colours', 'Allergies', 'Make date', 'Delivery or collection', 'Income', 'Expenses', 'Profit', 'Deposit', 'Outstanding'], S.orders.map(o => { const s = sums(o); return [o.eventDate, o.customerName, o.email, o.phone, o.status, o.biscuits ? o.biscuitQty : '', o.cupcakes ? o.cupcakeQty : '', o.details, o.colourScheme, o.allergies, o.makeDate, o.fulfilment, s.income / 100, s.costs / 100, s.profit / 100, s.deposit / 100, s.outstanding / 100]; })));
+  app.querySelector('#csvO')?.addEventListener('click', () => csv('tinas-orders.csv', ['Event date', 'Customer', 'Email', 'Instagram', 'Phone', 'Status', 'Biscuits', 'Cupcakes', 'Details', 'Colours', 'Allergies', 'Make date', 'Delivery or collection', 'Income', 'Expenses', 'Profit', 'Deposit', 'Outstanding'], S.orders.map(o => { const s = sums(o); return [o.eventDate, o.customerName, o.email, o.instagram, o.phone, o.status, o.biscuits ? o.biscuitQty : '', o.cupcakes ? o.cupcakeQty : '', o.details, o.colourScheme, o.allergies, o.makeDate, o.fulfilment, s.income / 100, s.costs / 100, s.profit / 100, s.deposit / 100, s.outstanding / 100]; })));
   app.querySelector('#csvE')?.addEventListener('click', () => csv('tinas-earnings-and-expenses.csv', ['Date', 'What', 'Type', 'Where from', 'Income or expense', 'Amount'], S.expenses.map(e => [e.date, e.item, e.category, e.source || 'Business', e.entryType === 'income' ? 'Income' : 'Expense', e.amount])));
 }
 
