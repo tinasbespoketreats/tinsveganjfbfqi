@@ -30,6 +30,24 @@ function render() {
   if (r === 'orders') viewOrders(); else if (r === 'money') viewMoney(); else if (r === 'order') viewOrder(); else viewHome();
 }
 
+const MAX_IMAGES = 10, signedCache = {};
+async function signedUrls(paths) {
+  const need = paths.filter(p => !signedCache[p] || signedCache[p].t < Date.now() - 45 * 60000);
+  if (need.length) { const m = await TB.signed(need); Object.entries(m).forEach(([p, url]) => signedCache[p] = {url, t: Date.now()}); }
+  return Object.fromEntries(paths.filter(p => signedCache[p]).map(p => [p, signedCache[p].url]));
+}
+async function shrink(file) {
+  const bmp = await createImageBitmap(file), k = Math.min(1, 1800 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height); bmp.close();
+  return new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error('image')), 'image/jpeg', .84));
+}
+function lightbox(url) {
+  const d = document.createElement('div'); d.className = 'lightbox'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Image');
+  const i = new Image(); i.src = url; i.alt = 'Order image'; const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Close'; d.append(b, i);
+  d.onclick = () => d.remove(); document.body.append(d); b.focus();
+}
+
 function viewHome() {
   const t = today(), all = S.orders.flatMap(jobs), week = addDays(t, 7), horizon = addDays(t, 45);
   const overdue = all.filter(j => j.date < t && j.kind === 'pay');
@@ -86,7 +104,11 @@ function viewOrder() {
     <div class="full" style="grid-column:1/-1"><h3>Theme, design and ideas</h3>${esc(o.details) || '<span class="muted">Nothing added.</span>'}</div>
     ${(o.costs || []).length ? `<div style="grid-column:1/-1"><h3>Expenses on this order</h3>${o.costs.map(c => esc(c.item) + ': ' + gbp(P(c.amount))).join('\n')}</div>` : ''}
   </section>
+  ${(o.images || []).length ? `<section class="card"><h3>Images</h3><div class="thumbs" id="orderImgs"></div></section>` : ''}
   <div class="row" id="delrow"><button class="danger" id="del">Delete order</button></div>`;
+  const box = app.querySelector('#orderImgs');
+  if (box) { const shown = o.images.map(() => { const w = document.createElement('div'); w.className = 'thumb'; const i = new Image(); i.alt = 'Order image'; i.onclick = () => i.src && lightbox(i.src); w.append(i); box.append(w); return i; });
+    signedUrls(o.images).then(m => o.images.forEach((p, n) => { if (m[p]) shown[n].src = m[p]; })).catch(() => toast("Images couldn't load. Check your connection.")); }
   const upd = async (patch, msg) => { try { await S.db.doc('orders/' + o.id).update({...patch, updatedAt: new Date().toISOString()}); toast(msg); } catch (e) { toast("That didn't save. Check your connection and try again."); } };
   app.querySelector('#st').onchange = e => upd({status: e.target.value}, 'Status changed to ' + e.target.value);
   app.querySelector('#paid')?.addEventListener('click', () => upd({balancePaid: true, balancePaidDate: today()}, 'Balance marked as paid'));
@@ -94,7 +116,7 @@ function viewOrder() {
   app.querySelector('#edit').onclick = () => { location.hash = '#edit'; };
   app.querySelector('#del').onclick = () => { document.getElementById('delrow').innerHTML = `<span>Delete this order for good?</span><button class="danger" id="delyes">Yes, delete it</button><button id="delno">Keep it</button>`;
     document.getElementById('delno').onclick = viewOrder;
-    document.getElementById('delyes').onclick = async () => { try { await S.db.doc('orders/' + o.id).delete(); location.hash = '#orders'; toast('Order deleted'); } catch (e) { toast("That didn't delete. Try again."); } }; };
+    document.getElementById('delyes').onclick = async () => { try { await S.db.doc('orders/' + o.id).delete(); TB.removeFiles(o.images || []).catch(() => {}); location.hash = '#orders'; toast('Order deleted'); } catch (e) { toast("That didn't delete. Try again."); } }; };
 }
 
 function moneyInput(id, v, label, hint = '') { return `<div class="f"><label for="${id}">${label}</label><div class="money"><input type="number" inputmode="decimal" step="0.01" min="0" id="${id}" name="${id}" value="${esc(v)}"></div>${hint ? `<span class="hint">${hint}</span>` : ''}</div>`; }
@@ -116,6 +138,11 @@ function viewForm(o) {
     <div class="f"><label class="tick"><input type="checkbox" id="cupcakes" name="cupcakes" ${o.cupcakes ? 'checked' : ''}>Cupcakes</label><label class="lab" for="cupcakeQty">Quantity</label><input type="number" min="0" step="1" inputmode="numeric" id="cupcakeQty" name="cupcakeQty" value="${esc(o.cupcakeQty)}"></div>
     <div class="f full"><label for="details">Theme, design and ideas</label><textarea id="details" name="details">${esc(o.details)}</textarea></div>
     <div class="full">${field('colourScheme', o.colourScheme, 'Colour scheme')}</div>${field('allergies', o.allergies, 'Allergies', 'text', 'Shown in red everywhere this order appears.')}${field('dietary', o.dietary, 'Dietary preference', 'text', 'For example vegan, vegetarian or halal')}
+  </fieldset>
+  <fieldset><legend>Images</legend>
+    <div class="f full"><span class="hint" id="imgCount"></span><div class="thumbs" id="imgGrid"></div>
+      <div class="row"><label class="btn" for="imgPick" id="imgAdd" tabindex="0">Add images</label><input type="file" id="imgPick" accept="image/*" multiple hidden></div>
+      <p class="err" id="imgErr" hidden></p></div>
   </fieldset>
   <fieldset><legend>Packaging</legend>
     <label class="tick"><input type="checkbox" id="cellophane" name="cellophane" ${o.cellophane ? 'checked' : ''}>Wrapped in cellophane</label>
@@ -177,6 +204,24 @@ function viewForm(o) {
     return d;
   }
   sync();
+  const imgs = {kept: [...(o.images || [])], pending: [], removed: []}, grid = f.querySelector('#imgGrid'), imgErr = f.querySelector('#imgErr');
+  const thumb = (src, onRemove) => { const w = document.createElement('div'); w.className = 'thumb'; const i = new Image(); i.alt = 'Order image'; if (src) i.src = src; i.onclick = () => i.src && lightbox(i.src);
+    const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', 'Remove image'); x.onclick = onRemove; w.append(i, x); return [w, i]; };
+  async function drawImgs() {
+    grid.replaceChildren(); const n = imgs.kept.length + imgs.pending.length;
+    f.querySelector('#imgCount').textContent = n + ' of ' + MAX_IMAGES + ' images. Logos, inspiration and anything else for this order.';
+    f.querySelector('#imgAdd').hidden = n >= MAX_IMAGES;
+    const shown = imgs.kept.map(p => { const [w, i] = thumb('', () => { imgs.kept = imgs.kept.filter(x => x !== p); imgs.removed.push(p); S.dirty = true; drawImgs(); }); grid.append(w); return [p, i]; });
+    imgs.pending.forEach(it => grid.append(thumb(it.url, () => { URL.revokeObjectURL(it.url); imgs.pending = imgs.pending.filter(x => x !== it); drawImgs(); })[0]));
+    if (shown.length) { try { const m = await signedUrls(imgs.kept); shown.forEach(([p, i]) => { if (m[p]) i.src = m[p]; }); } catch (e) { imgErr.textContent = "Saved images couldn't load. They're still safe."; imgErr.hidden = false; } }
+  }
+  drawImgs();
+  f.querySelector('#imgPick').addEventListener('change', async e => {
+    imgErr.hidden = true; const files = [...e.target.files], room = MAX_IMAGES - imgs.kept.length - imgs.pending.length; e.target.value = '';
+    for (const file of files.slice(0, room)) { try { const blob = await shrink(file); imgs.pending.push({blob, url: URL.createObjectURL(blob)}); S.dirty = true; } catch (x) { imgErr.textContent = "One image couldn't be read. Try a JPG or PNG."; imgErr.hidden = false; } }
+    if (files.length > room) { imgErr.textContent = 'You can add up to ' + MAX_IMAGES + ' images, so only the first ' + room + ' were added.'; imgErr.hidden = false; }
+    drawImgs();
+  });
   if (!editing) {
     const nameIn = f.querySelector('#customerName'), hits = f.querySelector('#nameHits');
     nameIn.setAttribute('autocomplete', 'off');
@@ -217,8 +262,12 @@ function viewForm(o) {
     const now = new Date().toISOString(), ref = editing ? S.db.doc('orders/' + o.id) : S.db.collection('orders').doc();
     const {id, balanceDue, ...keep} = o;
     try {
-      await ref.set({...keep, ...d, customerName: d.customerName.trim(), status: o.status || 'Confirmed', createdAt: o.createdAt || now, updatedAt: now});
+      for (const it of imgs.pending) if (!it.path) { const path = TB.uid() + '/' + ref.id + '/' + crypto.randomUUID() + '.jpg'; await TB.upload(path, it.blob); it.path = path; }
+    } catch (x) { btn.disabled = false; return fail("The images didn't upload, so the order hasn't been saved. Check your connection and press Save again."); }
+    try {
+      await ref.set({...keep, ...d, images: [...imgs.kept, ...imgs.pending.map(i => i.path)], customerName: d.customerName.trim(), status: o.status || 'Confirmed', createdAt: o.createdAt || now, updatedAt: now});
       try { localStorage.removeItem(DRAFT); } catch (x) {}
+      TB.removeFiles(imgs.removed).catch(() => {});
       S.dirty = false; S.open = ref.id; toast('Order saved'); location.hash = '#order';
     } catch (x) { btn.disabled = false; fail("That didn't save. Your entries are still here, so check your connection and press Save again."); }
   });

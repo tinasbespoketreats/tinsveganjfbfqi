@@ -110,3 +110,11 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:0}
 .suggest button{display:grid;gap:1px;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;font-weight:400;padding:9px 11px;min-width:0;overflow-wrap:anywhere}
 .suggest button:last-child{border-bottom:0}
 .suggest button:hover{background:var(--sunk)}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.thumbs:empty{display:none}
+.thumb{position:relative;aspect-ratio:1;max-width:100%;border-radius:8px;overflow:hidden;background:var(--sunk);border:1px solid var(--line)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
+.thumb button{position:absolute;top:4px;right:4px;width:30px;height:30px;padding:0;border-radius:50%;background:var(--surface);line-height:1;font-size:14px}
+.lightbox{position:fixed;inset:0;z-index:30;background:rgba(20,12,28,.92);display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.lightbox button{justify-self:end}
+.lightbox img{width:100%;height:100%;object-fit:contain;min-height:0}

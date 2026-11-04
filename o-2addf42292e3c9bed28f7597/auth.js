@@ -20,17 +20,23 @@ window.TB = (() => {
     try { await refresh(); return true; }
     catch (e) { if (e.status === 400 || e.status === 401) { save(null); return false; } return true; }
   }
-  async function rest(path, opts = {}) {
+  const rest = (path, opts) => call('/rest/v1/' + path, opts);
+  async function call(path, opts = {}) {
     if (!session) { const e = new Error('Signed out'); e.status = 401; throw e; }
     if (session.expires_at - 60 < Date.now() / 1000) await refresh();
-    const r = await fetch(URL_ + '/rest/v1/' + path, {...opts, headers: {apikey: KEY, Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json', ...(opts.headers || {})}});
+    const r = await fetch(URL_ + path, {...opts, headers: {apikey: KEY, Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json', ...(opts.headers || {})}});
     if (!r.ok) { const e = new Error('Database error ' + r.status); e.status = r.status; throw e; }
     return r.status === 204 ? null : r.json().catch(() => null);
   }
+  const BUCKET = 'order-images';
   return {
     resume, signedIn: () => !!session,
     signIn: (email, password) => token({email, password}, 'password'),
     signOut: async () => { try { await fetch(URL_ + '/auth/v1/logout', {method: 'POST', headers: {apikey: KEY, Authorization: 'Bearer ' + session.access_token}}); } catch (e) {} save(null); },
+    uid: () => JSON.parse(atob(session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub,
+    upload: (path, blob) => call('/storage/v1/object/' + BUCKET + '/' + path, {method: 'POST', headers: {'Content-Type': blob.type}, body: blob}),
+    signed: async paths => { const r = await call('/storage/v1/object/sign/' + BUCKET, {method: 'POST', body: JSON.stringify({expiresIn: 3600, paths})}); return Object.fromEntries(r.filter(x => x.signedURL).map(x => [x.path, URL_ + '/storage/v1' + x.signedURL])); },
+    removeFiles: async paths => paths.length ? call('/storage/v1/object/' + BUCKET, {method: 'DELETE', body: JSON.stringify({prefixes: paths})}) : null,
     list: table => rest(table + '?select=id,data'),
     put: (table, id, data) => rest(table, {method: 'POST', headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({id, data, updated_at: new Date().toISOString()})}),
     del: (table, id) => rest(table + '?id=eq.' + encodeURIComponent(id), {method: 'DELETE'}),
