@@ -15,7 +15,7 @@ function sums(o) {
   const outstanding = o.balancePaid ? 0 : Math.max(0, income - deposit);
   return {treats, delivery, income, costs, deposit, outstanding, profit: income - costs};
 }
-const dueDate = o => o.balanceDue || handover(o).date;
+const dueDate = o => o.eventDate;
 function jobs(o) {
   const out = [], s = sums(o), h = handover(o);
   if (o.status === 'Cancelled') return out;

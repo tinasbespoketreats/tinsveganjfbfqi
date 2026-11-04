@@ -82,7 +82,7 @@ function viewOrder() {
     ${item('Email', o.email)}${item('Phone', o.phone)}${item('Make on', fmt(o.makeDate))}${item(h.label, [fmt(h.date), h.time].filter(Boolean).join(' at '))}
     ${item('Delivery address', o.fulfilment === 'delivery' && o.deliveryAddress)}${item('Delivery location', o.fulfilment === 'delivery' && o.deliveryLocation)}
     ${item('Colour scheme', o.colourScheme)}${item('Packaging', [o.cellophane ? 'Wrapped in cellophane' : 'No cellophane', o.bow === 'with' ? 'with a ' + (o.bowColour || '') + ' bow' : o.bow === 'without' ? 'without a bow' : ''].filter(Boolean).join(', '))}
-    ${item('Balance due by', s.outstanding ? fmt(dueDate(o)) : '')}
+    ${item('Deposit paid on', s.deposit ? fmt(o.depositDate) : '')}${item('Paid in full on', o.balancePaid ? fmt(o.balancePaidDate) : '')}${item('Balance due on', s.outstanding ? fmt(dueDate(o)) : '')}
     <div class="full" style="grid-column:1/-1"><h3>Theme, design and ideas</h3>${esc(o.details) || '<span class="muted">Nothing added.</span>'}</div>
     ${(o.costs || []).length ? `<div style="grid-column:1/-1"><h3>Expenses on this order</h3>${o.costs.map(c => esc(c.item) + ': ' + gbp(P(c.amount))).join('\n')}</div>` : ''}
   </section>
@@ -101,7 +101,7 @@ function moneyInput(id, v, label, hint = '') { return `<div class="f"><label for
 function field(id, v, label, type = 'text', hint = '') { return `<div class="f"><label for="${id}">${label}</label><input type="${type}" id="${id}" name="${id}" value="${esc(v)}">${hint ? `<span class="hint">${hint}</span>` : ''}</div>`; }
 
 function viewForm(o) {
-  const editing = !!o.id;
+  const editing = !!o.id, pay = o.balancePaid ? 'paid' : P(o.deposit) > 0 ? 'deposit' : 'none';
   S.dirty = false;
   app.innerHTML = `${dataNote().includes('bad') ? dataNote() : ''}<h2>${editing ? 'Edit ' + esc(o.customerName) : 'New order'}</h2>
   <form id="f" novalidate>
@@ -135,8 +135,16 @@ function viewForm(o) {
   <fieldset><legend>Payment</legend>
     ${moneyInput('price', o.price, 'Total cost of treats', 'Without delivery')}
     <div id="feeBox">${moneyInput('deliveryFee', o.deliveryFee, 'Delivery charge')}</div>
-    ${moneyInput('deposit', o.deposit, 'Deposit paid')}${field('depositDate', o.depositDate || today(), 'Date deposit was paid', 'date')}
-    ${field('balanceDue', o.balanceDue, 'Balance due by', 'date', 'Leave blank to use the delivery or collection date')}
+    <div class="f full"><span class="lab">Has the customer paid?</span><div class="choices">
+      <label class="tick"><input type="radio" name="payment" id="payNone" value="none" ${pay === 'none' ? 'checked' : ''}>Not paid yet</label>
+      <label class="tick"><input type="radio" name="payment" id="payDeposit" value="deposit" ${pay === 'deposit' ? 'checked' : ''}>Deposit paid</label>
+      <label class="tick"><input type="radio" name="payment" id="payFull" value="paid" ${pay === 'paid' ? 'checked' : ''}>Paid in full</label>
+    </div></div>
+    <div id="depBox" class="full" style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+      ${moneyInput('deposit', o.deposit, 'Deposit amount')}${field('depositDate', o.depositDate || today(), 'Date deposit was paid', 'date')}
+    </div>
+    <div id="paidBox" class="full">${field('paidDate', o.balancePaidDate || today(), 'Date paid in full', 'date')}</div>
+    <p class="hint full" id="dueHint"></p>
   </fieldset>
   <fieldset><legend>Expenses for this order</legend>
     <div class="full lines" id="lines"></div>
@@ -152,9 +160,15 @@ function viewForm(o) {
     d.querySelector('button').onclick = () => { d.remove(); sync(); }; linesEl.append(d); };
   (o.costs?.length ? o.costs : [{}]).forEach(addLine);
   const read = () => { const d = Object.fromEntries(new FormData(f)); ['biscuits', 'cupcakes', 'cellophane'].forEach(k => d[k] = !!f[k].checked);
-    d.costs = [...linesEl.children].map(l => ({item: l.querySelector('input[type=text]').value.trim(), amount: l.querySelector('input[type=number]').value})).filter(c => c.item || c.amount); return d; };
+    d.costs = [...linesEl.children].map(l => ({item: l.querySelector('input[type=text]').value.trim(), amount: l.querySelector('input[type=number]').value})).filter(c => c.item || c.amount);
+    const p = d.payment; d.balancePaid = p === 'paid'; d.balancePaidDate = p === 'paid' ? d.paidDate : '';
+    if (p === 'none') { d.deposit = ''; d.depositDate = ''; }
+    delete d.paidDate; delete d.balanceDue; return d; };
   function sync() {
-    const d = read(), s = sums({...o, ...d, balancePaid: o.balancePaid});
+    const d = read(), s = sums({...o, ...d}), pm = f.querySelector('input[name=payment]:checked').value;
+    f.querySelector('#depBox').style.display = pm === 'deposit' ? 'grid' : 'none';
+    f.querySelector('#paidBox').hidden = pm !== 'paid';
+    f.querySelector('#dueHint').textContent = pm === 'paid' ? '' : d.eventDate ? 'The rest is due on the event date, ' + fmt(d.eventDate) + '.' : 'The rest is due on the event date.';
     f.querySelector('#bowBox').hidden = d.bow !== 'with';
     f.querySelector('#delBox').style.display = d.fulfilment === 'delivery' ? 'grid' : 'none';
     f.querySelector('#colBox').style.display = d.fulfilment === 'collection' ? 'grid' : 'none';
@@ -176,10 +190,13 @@ function viewForm(o) {
     if (!d.biscuits && !d.cupcakes) return fail('Tick biscuits or cupcakes to save this order.');
     if ((d.biscuits && !d.biscuitQty) || (d.cupcakes && !d.cupcakeQty)) return fail('Add the quantity to save this order.');
     if (s.deposit > s.income) return fail(`The deposit (${gbp(s.deposit)}) is more than the order income (${gbp(s.income)}). Check both amounts.`);
+    if (f.querySelector('#payDeposit').checked && !s.deposit) return fail('Add the deposit amount, or choose Not paid yet.');
+    if (f.querySelector('#payDeposit').checked && !d.depositDate) return fail('Add the date the deposit was paid.');
+    if (d.balancePaid && !d.balancePaidDate) return fail('Add the date the order was paid in full.');
     if (!S.db || S.failed) return fail("This can't save right now. Your entries stay on this page, so reload once you're back online.");
     const btn = f.querySelector('#save'); btn.disabled = true; e.hidden = true;
     const now = new Date().toISOString(), ref = editing ? S.db.doc('orders/' + o.id) : S.db.collection('orders').doc();
-    const {id, ...keep} = o;
+    const {id, balanceDue, ...keep} = o;
     try {
       await ref.set({...keep, ...d, customerName: d.customerName.trim(), status: o.status || 'Confirmed', createdAt: o.createdAt || now, updatedAt: now});
       try { localStorage.removeItem(DRAFT); } catch (x) {}
