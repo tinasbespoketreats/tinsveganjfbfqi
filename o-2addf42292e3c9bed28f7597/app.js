@@ -57,7 +57,7 @@ function viewHome() {
 function viewOrders() {
   const q = S.q.toLowerCase();
   const list = S.orders.filter(o => S.status === 'All' || (S.status === 'Active' ? !['Completed', 'Cancelled'].includes(o.status) : o.status === S.status))
-    .filter(o => !q || [o.customerName, o.email, o.instagram, o.phone, o.details, o.colourScheme].join(' ').toLowerCase().includes(q))
+    .filter(o => !q || [o.customerName, o.email, o.instagram, o.phone, o.details, o.colourScheme, o.dietary].join(' ').toLowerCase().includes(q))
     .sort((a, b) => (a.eventDate || '').localeCompare(b.eventDate || ''));
   app.innerHTML = `${dataNote()}<div class="row between"><h2>Orders</h2><a class="btn" href="#new-order">Add an order</a></div>
   <div class="row"><input type="search" id="q" aria-label="Search orders" placeholder="Search name, theme, colour…" value="${esc(S.q)}" style="flex:1 1 200px">
@@ -81,7 +81,7 @@ function viewOrder() {
   <section class="card detail">
     ${item('Email', o.email)}${item('Instagram', o.instagram)}${item('Phone', o.phone)}${item('Make on', fmt(o.makeDate))}${item(h.label, [fmt(h.date), h.time].filter(Boolean).join(' at '))}
     ${item('Delivery address', o.fulfilment === 'delivery' && o.deliveryAddress)}${item('Delivery location', o.fulfilment === 'delivery' && o.deliveryLocation)}
-    ${item('Colour scheme', o.colourScheme)}${item('Packaging', [o.cellophane ? 'Wrapped in cellophane' : 'No cellophane', o.bow === 'with' ? 'with a ' + (o.bowColour || '') + ' bow' : o.bow === 'without' ? 'without a bow' : ''].filter(Boolean).join(', '))}
+    ${item('Dietary preference', o.dietary)}${item('Colour scheme', o.colourScheme)}${item('Packaging', [o.cellophane ? 'Wrapped in cellophane' : 'No cellophane', o.bow === 'with' ? 'with a ' + (o.bowColour || '') + ' bow' : o.bow === 'without' ? 'without a bow' : ''].filter(Boolean).join(', '))}
     ${item('Deposit paid on', s.deposit ? fmt(o.depositDate) : '')}${item('Paid in full on', o.balancePaid ? fmt(o.balancePaidDate) : '')}${item('Balance due on', s.outstanding ? fmt(dueDate(o)) : '')}
     <div class="full" style="grid-column:1/-1"><h3>Theme, design and ideas</h3>${esc(o.details) || '<span class="muted">Nothing added.</span>'}</div>
     ${(o.costs || []).length ? `<div style="grid-column:1/-1"><h3>Expenses on this order</h3>${o.costs.map(c => esc(c.item) + ': ' + gbp(P(c.amount))).join('\n')}</div>` : ''}
@@ -115,7 +115,7 @@ function viewForm(o) {
     <div class="f"><label class="tick"><input type="checkbox" id="biscuits" name="biscuits" ${o.biscuits ? 'checked' : ''}>Biscuits</label><label class="lab" for="biscuitQty">Quantity</label><input type="number" min="0" step="1" inputmode="numeric" id="biscuitQty" name="biscuitQty" value="${esc(o.biscuitQty)}"></div>
     <div class="f"><label class="tick"><input type="checkbox" id="cupcakes" name="cupcakes" ${o.cupcakes ? 'checked' : ''}>Cupcakes</label><label class="lab" for="cupcakeQty">Quantity</label><input type="number" min="0" step="1" inputmode="numeric" id="cupcakeQty" name="cupcakeQty" value="${esc(o.cupcakeQty)}"></div>
     <div class="f full"><label for="details">Theme, design and ideas</label><textarea id="details" name="details">${esc(o.details)}</textarea></div>
-    ${field('colourScheme', o.colourScheme, 'Colour scheme')}${field('allergies', o.allergies, 'Allergies', 'text', 'Shown in red everywhere this order appears.')}
+    <div class="full">${field('colourScheme', o.colourScheme, 'Colour scheme')}</div>${field('allergies', o.allergies, 'Allergies', 'text', 'Shown in red everywhere this order appears.')}${field('dietary', o.dietary, 'Dietary preference', 'text', 'For example vegan, vegetarian or halal')}
   </fieldset>
   <fieldset><legend>Packaging</legend>
     <label class="tick"><input type="checkbox" id="cellophane" name="cellophane" ${o.cellophane ? 'checked' : ''}>Wrapped in cellophane</label>
@@ -188,8 +188,8 @@ function viewForm(o) {
       const list = q ? people().filter(x => x.customerName.toLowerCase().split(/\s+/).some(w => w.startsWith(q)) || x.customerName.toLowerCase().startsWith(q)).slice(0, 6) : [];
       hits.hidden = !list.length; hits.replaceChildren(...list.map(x => { const b = document.createElement('button'); b.type = 'button';
         b.innerHTML = `<strong>${esc(x.customerName)}</strong><span class="hint">${esc([x.instagram, x.email, x.phone].filter(Boolean).join(' · ') || 'No contact details saved')}</span>`;
-        b.onclick = () => { ['customerName', 'email', 'instagram', 'phone', 'deliveryAddress', 'allergies'].forEach(k => { if (x[k]) f[k].value = x[k]; }); hits.hidden = true; f.dispatchEvent(new Event('input', {bubbles: true}));
-          toast(x.allergies ? 'Details added. Check the allergies are still right.' : 'Customer details added'); };
+        b.onclick = () => { ['customerName', 'email', 'instagram', 'phone', 'deliveryAddress', 'allergies', 'dietary'].forEach(k => { if (x[k]) f[k].value = x[k]; }); hits.hidden = true; f.dispatchEvent(new Event('input', {bubbles: true}));
+          toast(x.allergies || x.dietary ? 'Details added. Check the allergies and dietary preference are still right.' : 'Customer details added'); };
         return b; })); };
     nameIn.addEventListener('input', showHits);
     nameIn.addEventListener('focus', showHits);
@@ -276,7 +276,7 @@ function viewMoney() {
     try { S.ym = date.slice(0, 7); S.year = date.slice(0, 4); await S.db.collection('expenses').add({date, item, amount, source: q('oeSrc').value, entryType: q('oeType').value, createdAt: new Date().toISOString()}); toast('Entry added'); }
     catch (x) { err.textContent = "That didn't save. Check your connection and try again."; err.hidden = false; } });
   const csv = async (name, head, rows) => { try { await S.downloads.save({filename: name, data: [head, ...rows].map(r => r.map(csvCell).join(',')).join('\n')}); toast('File saved'); } catch (e) { if (e?.code !== 'declined') toast("That file couldn't be saved here."); } };
-  app.querySelector('#csvO')?.addEventListener('click', () => csv('tinas-orders.csv', ['Event date', 'Customer', 'Email', 'Instagram', 'Phone', 'Status', 'Biscuits', 'Cupcakes', 'Details', 'Colours', 'Allergies', 'Make date', 'Delivery or collection', 'Income', 'Expenses', 'Profit', 'Deposit', 'Outstanding'], S.orders.map(o => { const s = sums(o); return [o.eventDate, o.customerName, o.email, o.instagram, o.phone, o.status, o.biscuits ? o.biscuitQty : '', o.cupcakes ? o.cupcakeQty : '', o.details, o.colourScheme, o.allergies, o.makeDate, o.fulfilment, s.income / 100, s.costs / 100, s.profit / 100, s.deposit / 100, s.outstanding / 100]; })));
+  app.querySelector('#csvO')?.addEventListener('click', () => csv('tinas-orders.csv', ['Event date', 'Customer', 'Email', 'Instagram', 'Phone', 'Status', 'Biscuits', 'Cupcakes', 'Details', 'Colours', 'Allergies', 'Dietary preference', 'Make date', 'Delivery or collection', 'Income', 'Expenses', 'Profit', 'Deposit', 'Outstanding'], S.orders.map(o => { const s = sums(o); return [o.eventDate, o.customerName, o.email, o.instagram, o.phone, o.status, o.biscuits ? o.biscuitQty : '', o.cupcakes ? o.cupcakeQty : '', o.details, o.colourScheme, o.allergies, o.dietary, o.makeDate, o.fulfilment, s.income / 100, s.costs / 100, s.profit / 100, s.deposit / 100, s.outstanding / 100]; })));
   app.querySelector('#csvE')?.addEventListener('click', () => csv('tinas-earnings-and-expenses.csv', ['Date', 'What', 'Type', 'Where from', 'Income or expense', 'Amount'], S.expenses.map(e => [e.date, e.item, e.category, e.source || 'Business', e.entryType === 'income' ? 'Income' : 'Expense', e.amount])));
 }
 
