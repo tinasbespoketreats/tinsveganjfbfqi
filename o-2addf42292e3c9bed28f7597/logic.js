@@ -66,7 +66,7 @@ const PRICING = {
   wrap: 40, firstCutter: 800, extraCutter: 400, customCutter: 1200,
   delivery: {'Collection': 0, 'Personal delivery': 0, 'Royal Mail – small': 900, 'Royal Mail – medium': 1200, 'Royal Mail – large': 1800},
   // Personal delivery: petrol in pence per litre, car miles per gallon (UK), and the extra distance roads add to a straight line.
-  car: {home: 'N9 7LJ', petrol: 179, mpg: 40, roadFactor: 1.3},
+  car: {home: 'N9 7LJ', petrol: 179, mpg: 40, roadFactor: 1.3, minCharge: 500},
   base: {flour: [80, 120], sugar: [225, 150], vitalite: [200, 44], vanilla: [899, 300]},
   icing: {fondant: [290, 40], royal: [265, 60]},
   toppers: {'Toppers 12 x 7cm': [834, 12], 'Toppers 6 x 7cm': [761, 6], 'Toppers custom shape': [551, 9]},
@@ -96,7 +96,7 @@ function quote(q, cfg = PRICING) {
   };
   const drive = q.delivery === 'Personal delivery', miles = drive ? Math.max(0, +q.miles || 0) : 0;
   const petrol = q.petrol > 0 ? +q.petrol : cfg.car.petrol, mpg = q.mpg > 0 ? +q.mpg : cfg.car.mpg, fuel = fuelPence(miles, petrol, mpg);
-  if (drive) charge.delivery = Math.ceil(Math.round(fuel) / 100) * 100; // petrol rounded up to the next whole pound
+  if (drive) charge.delivery = Math.max(cfg.car.minCharge, Math.ceil(Math.round(fuel) / 100) * 100); // petrol rounded up to the next pound, £5 minimum
   charge.total = charge.biscuits + charge.wrapping + charge.cutters + charge.delivery;
   const base = Object.values(cfg.base).reduce((t, c) => t + each(c), 0);
   const byTopper = {}; lines.forEach(l => { if (cfg.toppers[l.topper]) byTopper[l.topper] = (byTopper[l.topper] || 0) + l.qty; });

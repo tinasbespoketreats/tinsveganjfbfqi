@@ -133,7 +133,7 @@ async function postcodeAt(p) {
 const mapsUrl = pc => 'https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=' + encodeURIComponent(PRICING.car.home) + '&destination=' + encodeURIComponent(PRICING.car.home) + '&waypoints=' + encodeURIComponent(pc);
 const TIER_NAMES = ['6–49', '50–99', '100–199', '200+'];
 function viewPrice() {
-  const q = S.pq, opt = (list, v) => list.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  const q = S.pq, opt = (list, v) => list.map(x => `<option value="${esc(x)}" ${x === v ? 'selected' : ''}>${esc(x === 'Personal delivery' ? 'Personal delivery (from ' + gbp(PRICING.car.minCharge) + ')' : x)}</option>`).join('');
   const styles = Object.keys(PRICING.styles), toppers = ['No toppers', ...Object.keys(PRICING.toppers)];
   app.innerHTML = `<h2>Price an order</h2>
   <p class="hint">Add a line for each biscuit style in the order. The price, your costs and your profit work themselves out.</p>
