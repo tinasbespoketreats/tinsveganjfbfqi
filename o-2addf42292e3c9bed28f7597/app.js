@@ -180,7 +180,7 @@ function showQuote() {
     <p class="hint">${r.n} biscuits, so the ${TIER_NAMES[r.tier]} price is used.</p></section>
   <section class="card"><h3>What it costs you</h3><div class="total">
     ${row('Ingredients (biscuit and icing)', gbp(r.cost.ingredients))}${r.cost.toppers ? row(`Toppers (buy ${esc(sheetTxt)})`, gbp(r.cost.toppers)) : ''}
-    ${row(`Boxes (${Math.ceil(r.n / PRICING.perBox)})`, gbp(r.cost.boxes))}${r.cost.bagsBows ? row('Bags and bows', gbp(r.cost.bagsBows)) : ''}
+    ${row(`Boxes (${Math.ceil(r.n / PRICING.perBox)})`, gbp(r.cost.boxes))}${r.cost.bagsBows ? row('Bows', gbp(r.cost.bagsBows)) : ''}
     ${r.cost.cutters ? row('Cutters', gbp(r.cost.cutters)) : ''}${r.cost.postage ? row('Postage', gbp(r.cost.postage)) : ''}
     ${row('Total costs', gbp(r.cost.total), 'big')}${row('Profit (money you keep)', `<span class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</span>`, 'big')}</div></section>
   <div class="row"><button class="primary" id="qorder" type="button">Start an order with these figures</button></div>`;
@@ -191,7 +191,7 @@ function showQuote() {
       details: [r.lines.map(l => `${l.qty} × ${l.style}${PRICING.toppers[l.topper] ? ' (' + l.topper + ')' : ''}`).join('\n'), d.details].filter(Boolean).join('\n\n'),
       cellophane: !!q.wrapped, bow: q.wrapped ? 'with' : (d.bow || ''),
       fulfilment: post ? 'delivery' : (d.fulfilment || 'collection'), deliveryFee: post ? pounds(r.charge.delivery) : '',
-      costs: [['Ingredients', r.cost.ingredients], ['Toppers' + (sheetTxt ? ' (' + sheetTxt + ')' : ''), r.cost.toppers], ['Boxes', r.cost.boxes], ['Bags and bows', r.cost.bagsBows], ['Cutters', r.cost.cutters], ['Postage', r.cost.postage]]
+      costs: [['Ingredients', r.cost.ingredients], ['Toppers' + (sheetTxt ? ' (' + sheetTxt + ')' : ''), r.cost.toppers], ['Boxes', r.cost.boxes], ['Bows', r.cost.bagsBows], ['Cutters', r.cost.cutters], ['Postage', r.cost.postage]]
         .filter(([, a]) => a).map(([item, a]) => ({item, amount: pounds(a)}))});
     try { localStorage.setItem(DRAFT, JSON.stringify(d)); } catch (e) {}
     location.hash = '#new-order'; toast('Prices added. Fill in the customer and dates.');

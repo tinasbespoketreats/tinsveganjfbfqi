@@ -68,7 +68,7 @@ const PRICING = {
   base: {flour: [80, 120], sugar: [225, 150], vitalite: [200, 44], vanilla: [899, 300]},
   icing: {fondant: [290, 40], royal: [265, 60]},
   toppers: {'Toppers 12 x 7cm': [834, 12], 'Toppers 6 x 7cm': [761, 6], 'Toppers custom shape': [551, 9]},
-  bow: [225, 31], cello: [200, 100], box: [582, 8],
+  bow: [225, 31], box: [582, 8],
   perBox: 6, hourly: 1500, minOrder: 6, bakeMins: 4, bakeMinsBig: 3,
 };
 const each = ([price, n]) => price / n;
@@ -92,7 +92,7 @@ function quote(q, cfg = PRICING) {
     ingredients: n * base + lines.reduce((t, l) => t + l.qty * each(cfg.icing[cfg.styles[l.style].icing]), 0),
     toppers: sheets.reduce((t, s) => t + s.sheets * cfg.toppers[s.topper][0], 0),
     boxes: Math.ceil(n / cfg.perBox) * each(cfg.box),
-    bagsBows: q.wrapped ? n * (each(cfg.bow) + each(cfg.cello)) : 0,
+    bagsBows: q.wrapped ? n * each(cfg.bow) : 0,
     cutters: charge.cutters, postage: charge.delivery,
   };
   const costTotal = Math.round(Object.values(cost).reduce((t, v) => t + v, 0));
