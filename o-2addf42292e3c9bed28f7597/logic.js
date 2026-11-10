@@ -72,6 +72,8 @@ const PRICING = {
   icing: {fondant: [290, 40], royal: [265, 60]},
   toppers: {'Toppers 12 x 7cm': [834, 12], 'Toppers 6 x 7cm': [761, 6], 'Toppers custom shape': [551, 9]},
   bow: [225, 31], bigBox: [1299, 5], largeBox: [582, 8], smallBox: [874, 14], bigHolds: 200, bigFrom: 80, largeHolds: 40, smallHolds: 8,
+  // Sample box: 6 logo biscuits for £15, taken off their order if they book.
+  sample: {qty: 6, price: 1500, style: 'Logo / photo topper', topper: 'Toppers 12 x 7cm'},
   hourly: 1500, minOrder: 6, bakeMins: 4, bakeMinsBig: 3,
 };
 const each = ([price, n]) => price / n;

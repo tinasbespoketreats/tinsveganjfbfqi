@@ -10,7 +10,7 @@ S.ym = today().slice(0, 7); S.year = today().slice(0, 4);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const fmt = (s, o = {day: 'numeric', month: 'short', year: 'numeric'}) => s ? new Date(s + 'T12:00:00').toLocaleDateString('en-GB', o) : '';
 const toast = m => { const t = document.getElementById('toast'); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 3200); };
-const what = o => [o.biscuits && (o.biscuitQty || '?') + ' biscuits', o.cupcakes && (o.cupcakeQty || '?') + ' cupcakes'].filter(Boolean).join(' + ') || 'Items not set';
+const what = o => o.orderType === 'sample' ? 'Sample box (' + (o.biscuitQty || PRICING.sample.qty) + ' biscuits)' : [o.biscuits && (o.biscuitQty || '?') + ' biscuits', o.cupcakes && (o.cupcakeQty || '?') + ' cupcakes'].filter(Boolean).join(' + ') || 'Items not set';
 const dateTab = (s, cls = '') => s ? `<div class="tab ${cls}"><span>${fmt(s, {month: 'short'})}</span><b>${fmt(s, {day: 'numeric'})}</b><span>${fmt(s, {weekday: 'short'})}</span></div>` : '<div class="tab"><b>?</b></div>';
 const route = () => (location.hash || '#coming-up').slice(1);
 const hasExamples = () => S.orders.some(o => o.example) || S.expenses.some(e => e.example);
@@ -92,6 +92,7 @@ function viewOrder() {
   app.innerHTML = `<div class="row between"><div><h2>${esc(o.customerName)}</h2><span class="muted">${esc(what(o))} for ${fmt(o.eventDate) || 'date not set'}</span></div>
   <div class="row"><label class="lab" for="st">Status</label><select id="st" style="width:auto">${STATUSES.map(x => `<option ${x === o.status ? 'selected' : ''}>${x}</option>`).join('')}</select></div></div>
   ${o.example ? '<div class="notice"><span>This is an example order.</span></div>' : ''}
+  ${o.orderType === 'sample' ? `<div class="notice"><span><b>Sample box.</b> If they book a full order, take ${gbp(PRICING.sample.price)} off it.</span></div>` : ''}
   ${o.allergies ? `<div class="notice bad"><span class="allergy">Allergies: ${esc(o.allergies)}</span></div>` : ''}
   <div class="total"><div><span>Treats</span><span>${gbp(s.treats)}</span></div>${o.fulfilment === 'delivery' ? `<div><span>Delivery</span><span>${gbp(s.delivery)}</span></div>` : ''}<div class="big"><span>Order income</span><span>${gbp(s.income)}</span></div><div><span>Expenses on this order</span><span>${gbp(s.costs)}</span></div><div><span>Profit</span><span class="${s.profit < 0 ? 'neg' : ''}">${gbp(s.profit)}</span></div><div><span>Deposit received</span><span>${gbp(s.deposit)}</span></div><div class="big"><span>Payment outstanding</span><span>${gbp(s.outstanding)}</span></div></div>
   <div class="row">${s.outstanding ? `<button class="primary" id="paid">Mark balance as paid</button>` : o.balancePaid ? '<button id="unpaid">Undo balance paid</button>' : ''}<button id="edit">Edit order</button></div>
@@ -254,6 +255,10 @@ function viewForm(o) {
   S.dirty = false;
   app.innerHTML = `${dataNote().includes('bad') ? dataNote() : ''}<h2>${editing ? 'Edit ' + esc(o.customerName) : 'New order'}</h2>
   <form id="f" novalidate>
+  <fieldset><legend>Type of order</legend>
+    <div class="f full"><div class="choices"><label class="tick"><input type="radio" name="orderType" id="otOrder" value="order" ${o.orderType !== 'sample' ? 'checked' : ''}>Normal order</label><label class="tick"><input type="radio" name="orderType" id="otSample" value="sample" ${o.orderType === 'sample' ? 'checked' : ''}>Sample box only</label></div>
+    <p class="hint" id="sampleHint" ${o.orderType === 'sample' ? '' : 'hidden'}>A sample box is ${PRICING.sample.qty} logo biscuits for ${gbp(PRICING.sample.price)}. The price and costs are filled in for you. If they book a full order, take ${gbp(PRICING.sample.price)} off it.</p></div>
+  </fieldset>
   <fieldset><legend>Customer</legend>
     <div class="full">${field('customerName', o.customerName, 'Name')}<div id="nameHits" class="suggest" hidden></div></div>${field('email', o.email, 'Email', 'email')}${field('instagram', o.instagram, 'Instagram', 'text', 'Their username, e.g. @name')}${field('phone', o.phone, 'Phone number', 'tel')}
   </fieldset>
@@ -331,6 +336,16 @@ function viewForm(o) {
     return d;
   }
   sync();
+  f.querySelectorAll('input[name=orderType]').forEach(r => r.addEventListener('change', () => {
+    const sample = f.querySelector('#otSample').checked; f.querySelector('#sampleHint').hidden = !sample;
+    if (!sample) return;
+    const sp = PRICING.sample, r2 = quote({lines: [{style: sp.style, qty: sp.qty, topper: sp.topper}]}), pounds = p => (p / 100).toFixed(2);
+    f.biscuits.checked = true; f.cupcakes.checked = false; f.biscuitQty.value = sp.qty; f.cupcakeQty.value = ''; f.price.value = pounds(sp.price);
+    if (![...linesEl.querySelectorAll('input')].some(i => i.value)) { linesEl.replaceChildren();
+      [['Ingredients', r2.cost.ingredients], ['Toppers (1 sheet of 12)', r2.cost.toppers], ['Small box', r2.cost.boxes]].forEach(([item, a]) => addLine({item, amount: pounds(a)})); }
+    if (!f.details.value.trim()) f.details.value = `Sample box: ${sp.qty} logo biscuits. ${gbp(sp.price)} comes off their order if they book.`;
+    f.dispatchEvent(new Event('input', {bubbles: true}));
+  }));
   const imgs = {kept: [...(o.images || [])], pending: [], removed: []}, grid = f.querySelector('#imgGrid'), imgErr = f.querySelector('#imgErr');
   const thumb = (src, onRemove) => { const w = document.createElement('div'); w.className = 'thumb'; const i = new Image(); i.alt = 'Order image'; if (src) i.src = src; i.onclick = () => i.src && lightbox(i.src);
     const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', 'Remove image'); x.onclick = onRemove; w.append(i, x); return [w, i]; };
