@@ -118,3 +118,8 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:0}
 .lightbox{position:fixed;inset:0;z-index:30;background:rgba(20,12,28,.92);display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
 .lightbox button{justify-self:end}
 .lightbox img{width:100%;height:100%;object-fit:contain;min-height:0}
+.notice.good{background:var(--good-soft)}
+.qline{display:grid;grid-template-columns:minmax(0,1.3fr) 96px minmax(0,1fr) 40px;gap:8px;align-items:end;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.qline:last-child{border-bottom:0;padding-bottom:0}
+.qx{height:42px;padding:0}
+@media (max-width:640px){.qline{grid-template-columns:minmax(0,1fr) 96px}.qline .f:nth-child(3){grid-column:1}.qx{grid-column:2;grid-row:2}}

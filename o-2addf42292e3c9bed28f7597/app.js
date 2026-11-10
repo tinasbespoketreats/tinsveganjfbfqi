@@ -26,7 +26,7 @@ function dataNote() {
 function render() {
   const r = route();
   document.querySelectorAll('nav a').forEach(a => a.dataset.r === (r.startsWith('order-') ? 'orders' : r) ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
-  if (r === 'new-order' || r === 'edit') return; // forms are drawn once by go()
+  if (r === 'new-order' || r === 'edit' || r === 'price') return; // forms are drawn once by go()
   if (r === 'orders') viewOrders(); else if (r === 'money') viewMoney(); else if (r === 'order') viewOrder(); else viewHome();
 }
 
@@ -117,6 +117,85 @@ function viewOrder() {
   app.querySelector('#del').onclick = () => { document.getElementById('delrow').innerHTML = `<span>Delete this order for good?</span><button class="danger" id="delyes">Yes, delete it</button><button id="delno">Keep it</button>`;
     document.getElementById('delno').onclick = viewOrder;
     document.getElementById('delyes').onclick = async () => { try { await S.db.doc('orders/' + o.id).delete(); TB.removeFiles(o.images || []).catch(() => {}); location.hash = '#orders'; toast('Order deleted'); } catch (e) { toast("That didn't delete. Try again."); } }; };
+}
+
+/* price an order */
+S.pq = {lines: [{style: 'Logo / photo topper', qty: '', topper: 'Toppers 12 x 7cm'}], wrapped: false, delivery: 'Collection', shapes: '', customCutter: false};
+const TIER_NAMES = ['6–49', '50–99', '100–199', '200+'];
+function viewPrice() {
+  const q = S.pq, opt = (list, v) => list.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  const styles = Object.keys(PRICING.styles), toppers = ['No toppers', ...Object.keys(PRICING.toppers)];
+  app.innerHTML = `<h2>Price an order</h2>
+  <p class="hint">Add a line for each biscuit style in the order. The price, your costs and your profit work themselves out.</p>
+  <form id="pf" novalidate>
+  <fieldset><legend>Biscuits</legend>
+    <div class="full lines" id="qlines"></div>
+    <div class="full"><button type="button" id="qadd">Add another style</button></div>
+  </fieldset>
+  <fieldset><legend>Extras</legend>
+    <label class="tick full"><input type="checkbox" id="qwrap" ${q.wrapped ? 'checked' : ''}>Individually wrapped with a bow (${gbp(PRICING.wrap)} each)</label>
+    <div class="f"><label for="qdel">Delivery</label><select id="qdel">${opt(Object.keys(PRICING.delivery), q.delivery)}</select></div>
+    <div class="f"><label for="qshapes">Shapes you don't have a cutter for</label><input type="number" id="qshapes" min="0" step="1" inputmode="numeric" value="${esc(q.shapes)}"><span class="hint">${gbp(PRICING.firstCutter)} for the first, ${gbp(PRICING.extraCutter)} each after</span></div>
+    <label class="tick full"><input type="checkbox" id="qcustom" ${q.customCutter ? 'checked' : ''}>Custom cutter or stamp (${gbp(PRICING.customCutter)})</label>
+  </fieldset>
+  </form>
+  <div id="qres" class="stack"></div>`;
+  const box = app.querySelector('#qlines');
+  const drawLines = () => {
+    box.innerHTML = q.lines.map((l, i) => `<div class="qline" data-i="${i}">
+      <div class="f"><label for="qs${i}">Style</label><select id="qs${i}" data-k="style">${opt(styles, l.style)}</select></div>
+      <div class="f"><label for="qn${i}">How many</label><input type="number" id="qn${i}" data-k="qty" min="0" step="1" inputmode="numeric" value="${esc(l.qty)}"></div>
+      <div class="f"><label for="qt${i}">Toppers</label><select id="qt${i}" data-k="topper">${opt(toppers, l.topper)}</select></div>
+      ${q.lines.length > 1 ? `<button type="button" class="qx" data-x="${i}" aria-label="Remove this style">✕</button>` : '<span></span>'}</div>`).join('');
+  };
+  drawLines(); showQuote();
+  const f = app.querySelector('#pf');
+  f.addEventListener('input', e => { const ln = e.target.closest('.qline');
+    if (ln) q.lines[ln.dataset.i][e.target.dataset.k] = e.target.value;
+    q.wrapped = f.querySelector('#qwrap').checked; q.delivery = f.querySelector('#qdel').value; q.shapes = f.querySelector('#qshapes').value; q.customCutter = f.querySelector('#qcustom').checked;
+    showQuote(); });
+  f.addEventListener('change', e => { if (e.target.type !== 'number') f.dispatchEvent(new Event('input')); });
+  f.querySelector('#qadd').onclick = () => { q.lines.push({style: 'Simple fondant personalisation', qty: '', topper: 'No toppers'}); drawLines(); showQuote(); box.querySelector(`#qn${q.lines.length - 1}`).focus(); };
+  box.addEventListener('click', e => { const x = e.target.closest('[data-x]'); if (!x) return; q.lines.splice(+x.dataset.x, 1); drawLines(); showQuote(); });
+}
+function showQuote() {
+  const q = S.pq, r = quote(q), out = app.querySelector('#qres'), key = JSON.stringify(q); if (!out || out.dataset.key === key) return; out.dataset.key = key;
+  if (!r.n) { out.innerHTML = `<div class="empty">Type how many biscuits to see the price.</div>`; return; }
+  const row = (k, v, cls = '') => `<div class="${cls}"><span>${k}</span><span>${v}</span></div>`;
+  const verdict = {min: ['bad', `The minimum order is ${PRICING.minOrder} biscuits.`],
+    good: ['good', `✓ Good price. You earn ${gbp(r.perHour)} an hour, at least your ${gbp(PRICING.hourly)} rate.`],
+    low: ['warn', `⚠ Too cheap. You'd earn ${gbp(r.perHour)} an hour, under your ${gbp(PRICING.hourly)} rate. Charge more or change the toppers.`]}[r.verdict];
+  const sheetTxt = r.sheets.map(s => s.sheets + ' × ' + s.topper.replace('Toppers ', '')).join(', ');
+  out.innerHTML = `<div class="notice ${verdict[0]}"><span><b>${verdict[1]}</b></span></div>
+  <div class="stats">
+    <div class="stat"><b>${gbp(r.charge.total)}</b><span>Charge the customer</span></div>
+    <div class="stat"><b class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</b><span>Your profit</span></div>
+    <div class="stat"><b>${r.hours.toLocaleString('en-GB', {maximumFractionDigits: 1})} hrs</b><span>Time it will take</span></div>
+    <div class="stat"><b>${gbp(r.deposit)}</b><span>Deposit to take (50%)</span></div>
+  </div>
+  <section class="card"><h3>What the customer pays</h3><div class="total">
+    ${r.lines.map(l => row(`${l.qty} × ${esc(l.style)} at ${gbp(l.price)}`, gbp(l.total))).join('')}
+    ${r.charge.wrapping ? row('Individual wrapping', gbp(r.charge.wrapping)) : ''}${r.charge.cutters ? row('Cutters', gbp(r.charge.cutters)) : ''}${r.charge.delivery ? row(esc(q.delivery), gbp(r.charge.delivery)) : ''}
+    ${row('Total to charge', gbp(r.charge.total), 'big')}${row('Deposit to take (50%)', gbp(r.deposit))}</div>
+    <p class="hint">${r.n} biscuits, so the ${TIER_NAMES[r.tier]} price is used.</p></section>
+  <section class="card"><h3>What it costs you</h3><div class="total">
+    ${row('Ingredients (biscuit and icing)', gbp(r.cost.ingredients))}${r.cost.toppers ? row(`Toppers (buy ${esc(sheetTxt)})`, gbp(r.cost.toppers)) : ''}
+    ${row(`Boxes (${Math.ceil(r.n / PRICING.perBox)})`, gbp(r.cost.boxes))}${r.cost.bagsBows ? row('Bags and bows', gbp(r.cost.bagsBows)) : ''}
+    ${r.cost.cutters ? row('Cutters', gbp(r.cost.cutters)) : ''}${r.cost.postage ? row('Postage', gbp(r.cost.postage)) : ''}
+    ${row('Total costs', gbp(r.cost.total), 'big')}${row('Profit (money you keep)', `<span class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</span>`, 'big')}</div></section>
+  <div class="row"><button class="primary" id="qorder" type="button">Start an order with these figures</button></div>`;
+  out.querySelector('#qorder').onclick = () => {
+    let d = {}; try { d = JSON.parse(localStorage.getItem(DRAFT)) || {}; } catch (e) {}
+    const pounds = p => (p / 100).toFixed(2), post = r.charge.delivery > 0;
+    Object.assign(d, {biscuits: true, biscuitQty: String(r.n), price: pounds(r.charge.total - r.charge.delivery),
+      details: [r.lines.map(l => `${l.qty} × ${l.style}${PRICING.toppers[l.topper] ? ' (' + l.topper + ')' : ''}`).join('\n'), d.details].filter(Boolean).join('\n\n'),
+      cellophane: !!q.wrapped, bow: q.wrapped ? 'with' : (d.bow || ''),
+      fulfilment: post ? 'delivery' : (d.fulfilment || 'collection'), deliveryFee: post ? pounds(r.charge.delivery) : '',
+      costs: [['Ingredients', r.cost.ingredients], ['Toppers' + (sheetTxt ? ' (' + sheetTxt + ')' : ''), r.cost.toppers], ['Boxes', r.cost.boxes], ['Bags and bows', r.cost.bagsBows], ['Cutters', r.cost.cutters], ['Postage', r.cost.postage]]
+        .filter(([, a]) => a).map(([item, a]) => ({item, amount: pounds(a)}))});
+    try { localStorage.setItem(DRAFT, JSON.stringify(d)); } catch (e) {}
+    location.hash = '#new-order'; toast('Prices added. Fill in the customer and dates.');
+  };
 }
 
 function moneyInput(id, v, label, hint = '') { return `<div class="f"><label for="${id}">${label}</label><div class="money"><input type="number" inputmode="decimal" step="0.01" min="0" id="${id}" name="${id}" value="${esc(v)}"></div>${hint ? `<span class="hint">${hint}</span>` : ''}</div>`; }
@@ -344,6 +423,7 @@ app.addEventListener('change', e => { if (e.target.id === 'fs') { S.status = e.t
 function go() {
   const r = route();
   if (r === 'new-order') { let d = {}; try { d = JSON.parse(localStorage.getItem(DRAFT)) || {}; } catch (e) {} render(); viewForm(d); window.scrollTo(0, 0); return; }
+  if (r === 'price') { render(); viewPrice(); window.scrollTo(0, 0); return; }
   if (r === 'edit') { const o = S.orders.find(x => x.id === S.open); if (!o) { location.hash = '#orders'; return; } render(); viewForm(JSON.parse(JSON.stringify(o))); window.scrollTo(0, 0); return; }
   S.dirty = false; render(); window.scrollTo(0, 0);
 }

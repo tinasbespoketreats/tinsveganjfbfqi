@@ -53,5 +53,56 @@ function calUrl(title, details, date, time) {
   else dates = c(date) + '/' + c(addDays(date, 1));
   return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(title) + '&dates=' + dates + '&ctz=Europe/London&details=' + encodeURIComponent(details);
 }
+/* ---------- biscuit pricing (matches the Biscuit Quote Calculator sheet) ---------- */
+// Money in pence. Costs are [pack price, biscuits one pack does].
+const PRICING = {
+  styles: {
+    'Simple fondant personalisation': {prices: [320, 320, 320, 320], mins: 2, icing: 'fondant'},
+    'Logo / photo topper': {prices: [350, 300, 275, 250], mins: 3, icing: 'fondant'},
+    'Simple hand-piped': {prices: [375, 375, 375, 375], mins: 5, icing: 'royal'},
+    'Detailed hand-piped': {prices: [450, 450, 450, 450], mins: 12, icing: 'royal'},
+  },
+  tiers: [0, 50, 100, 200],
+  wrap: 40, firstCutter: 800, extraCutter: 400, customCutter: 1200,
+  delivery: {'Collection': 0, 'Royal Mail – small': 900, 'Royal Mail – medium': 1200, 'Royal Mail – large': 1800},
+  base: {flour: [80, 120], sugar: [225, 150], vitalite: [200, 44], vanilla: [899, 300]},
+  icing: {fondant: [290, 40], royal: [265, 60]},
+  toppers: {'Toppers 12 x 7cm': [834, 12], 'Toppers 6 x 7cm': [761, 6], 'Toppers custom shape': [551, 9]},
+  bow: [225, 31], cello: [200, 100], box: [582, 8],
+  perBox: 6, hourly: 1500, minOrder: 6, bakeMins: 4, bakeMinsBig: 3,
+};
+const each = ([price, n]) => price / n;
+function quote(q, cfg = PRICING) {
+  const lines = (q.lines || []).map(l => ({...l, qty: Math.max(0, Math.floor(+l.qty || 0))})).filter(l => l.qty && cfg.styles[l.style]);
+  const n = lines.reduce((t, l) => t + l.qty, 0);
+  const tier = cfg.tiers.reduce((k, from, i) => n >= from ? i : k, 0);
+  const priced = lines.map(l => ({...l, price: cfg.styles[l.style].prices[tier], total: l.qty * cfg.styles[l.style].prices[tier]}));
+  const shapes = Math.max(0, Math.floor(+q.shapes || 0));
+  const charge = {
+    biscuits: priced.reduce((t, l) => t + l.total, 0),
+    wrapping: q.wrapped ? n * cfg.wrap : 0,
+    cutters: (shapes ? cfg.firstCutter + (shapes - 1) * cfg.extraCutter : 0) + (q.customCutter ? cfg.customCutter : 0),
+    delivery: cfg.delivery[q.delivery] || 0,
+  };
+  charge.total = charge.biscuits + charge.wrapping + charge.cutters + charge.delivery;
+  const base = Object.values(cfg.base).reduce((t, c) => t + each(c), 0);
+  const byTopper = {}; lines.forEach(l => { if (cfg.toppers[l.topper]) byTopper[l.topper] = (byTopper[l.topper] || 0) + l.qty; });
+  const sheets = Object.entries(byTopper).map(([k, qty]) => ({topper: k, sheets: Math.ceil(qty / cfg.toppers[k][1])}));
+  const cost = {
+    ingredients: n * base + lines.reduce((t, l) => t + l.qty * each(cfg.icing[cfg.styles[l.style].icing]), 0),
+    toppers: sheets.reduce((t, s) => t + s.sheets * cfg.toppers[s.topper][0], 0),
+    boxes: Math.ceil(n / cfg.perBox) * each(cfg.box),
+    bagsBows: q.wrapped ? n * (each(cfg.bow) + each(cfg.cello)) : 0,
+    cutters: charge.cutters, postage: charge.delivery,
+  };
+  const costTotal = Math.round(Object.values(cost).reduce((t, v) => t + v, 0));
+  Object.keys(cost).forEach(k => cost[k] = Math.round(cost[k]));
+  cost.ingredients = costTotal - (cost.toppers + cost.boxes + cost.bagsBows + cost.cutters + cost.postage); // lines add up to the total exactly
+  cost.total = costTotal;
+  const minutes = n * (n >= cfg.tiers[1] ? cfg.bakeMinsBig : cfg.bakeMins) + lines.reduce((t, l) => t + l.qty * cfg.styles[l.style].mins, 0) + (q.wrapped ? n : 0);
+  const profit = charge.total - costTotal, hours = minutes / 60, perHour = hours ? Math.round(profit / hours) : 0;
+  return {n, tier, lines: priced, charge, deposit: Math.round(charge.total / 2), cost, sheets, profit, minutes, hours, perHour,
+    verdict: !n ? 'empty' : n < cfg.minOrder ? 'min' : perHour >= cfg.hourly ? 'good' : 'low'};
+}
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-if (typeof module !== 'undefined') module.exports = {SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays};
+if (typeof module !== 'undefined') module.exports = {SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays, PRICING, quote};
