@@ -133,10 +133,10 @@ async function postcodeAt(p) {
 const mapsUrl = pc => 'https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=' + encodeURIComponent(PRICING.car.home) + '&destination=' + encodeURIComponent(PRICING.car.home) + '&waypoints=' + encodeURIComponent(pc);
 const TIER_NAMES = ['6–49', '50–99', '100–199', '200+'];
 function viewPrice() {
-  const q = S.pq, opt = (list, v) => list.map(x => `<option value="${esc(x)}" ${x === v ? 'selected' : ''}>${esc(x === 'Personal delivery' ? 'Personal delivery (' + PRICING.car.perMile.toFixed(1) + 'p a mile, from ' + gbp(PRICING.car.minCharge) + ')' : x)}</option>`).join('');
+  const q = S.pq, opt = (list, v) => list.map(x => `<option value="${esc(x)}" ${x === v ? 'selected' : ''}>${esc(x === 'Personal delivery' ? 'Personal delivery (from ' + gbp(PRICING.car.minCharge).replace('.00', '') + ')' : x)}</option>`).join('');
   const styles = Object.keys(PRICING.styles), toppers = ['No toppers', ...Object.keys(PRICING.toppers)];
   app.innerHTML = `<h2>Price an order</h2>
-  <p class="hint">Add a line for each biscuit style in the order. The price, your costs and your profit work themselves out.</p>
+  <p class="hint">Fill in the boxes below. The answer appears underneath — no maths needed.</p>
   <form id="pf" novalidate>
   <fieldset><legend>Biscuits</legend>
     <div class="full lines" id="qlines"></div>
@@ -197,31 +197,40 @@ function viewPrice() {
 }
 function showQuote() {
   const q = S.pq, r = quote(q), out = app.querySelector('#qres'), key = JSON.stringify(q); if (!out || out.dataset.key === key) return; out.dataset.key = key;
+  const wasOpen = !!out.querySelector('details.howto[open]');
   if (!r.n) { out.innerHTML = `<div class="empty">Type how many biscuits to see the price.</div>`; return; }
   const row = (k, v, cls = '') => `<div class="${cls}"><span>${k}</span><span>${v}</span></div>`;
-  const verdict = {min: ['bad', `The minimum order is ${PRICING.minOrder} biscuits.`],
-    good: ['good', `✓ Good price. You earn ${gbp(r.perHour)} an hour, at least your ${gbp(PRICING.hourly)} rate.`],
-    low: ['warn', `⚠ Too cheap. You'd earn ${gbp(r.perHour)} an hour, under your ${gbp(PRICING.hourly)} rate. Charge more or change the toppers.`]}[r.verdict];
+  const timeTxt = mins => { const m = Math.max(5, Math.round(mins / 5) * 5), h = Math.floor(m / 60), r = m % 60; return [h && h + (h === 1 ? ' hour' : ' hours'), r && r + ' mins'].filter(Boolean).join(' '); };
+  const pounds0 = p => '£' + Math.round(p / 100);
+  const verdict = {min: ['bad', `The smallest order you take is ${PRICING.minOrder} biscuits.`],
+    good: ['good', `✓ This is a good price.`],
+    low: ['warn', `⚠ This price is too low for the work. Try charging more.`]}[r.verdict];
   const boxTxt = [r.boxes.big && r.boxes.big + ' big', r.boxes.large && r.boxes.large + ' large', r.boxes.small && r.boxes.small + ' small'].filter(Boolean).join(', ');
   const sheetTxt = r.sheets.map(s => s.sheets + ' × ' + s.topper.replace('Toppers ', '')).join(', ');
-  out.innerHTML = `${r.drive && !r.drive.miles ? '<div class="notice warn"><span>Add the delivery postcode and press Work out miles to include the petrol.</span></div>' : ''}<div class="notice ${verdict[0]}"><span><b>${verdict[1]}</b></span></div>
-  <div class="stats">
-    <div class="stat"><b>${gbp(r.charge.total)}</b><span>Charge the customer</span></div>
-    <div class="stat"><b class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</b><span>Your profit</span></div>
-    <div class="stat"><b>${r.hours.toLocaleString('en-GB', {maximumFractionDigits: 1})} hrs</b><span>Time it will take</span></div>
-    <div class="stat"><b>${gbp(r.deposit)}</b><span>Deposit to take (50%)</span></div>
-  </div>
+  out.innerHTML = `${r.drive && !r.drive.miles ? '<div class="notice warn"><span>Type the delivery postcode and press <b>Work out miles</b> to add the delivery.</span></div>' : ''}
+  <section class="answer" aria-label="The answer">
+    <div class="ans-main"><span>Charge the customer</span><b id="ansCharge">${gbp(r.charge.total)}</b></div>
+    <div class="ans-row"><span>Deposit to ask for now</span><b id="ansDeposit">${gbp(r.deposit)}</b></div>
+    <div class="ans-row"><span>Still to pay on the day</span><b>${gbp(r.charge.total - r.deposit)}</b></div>
+    <div class="ans-row"><span>It costs you</span><b id="ansCost">${gbp(r.cost.total)}</b></div>
+    <div class="ans-row keep"><span>You keep</span><b id="ansKeep" class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</b></div>
+    <div class="ans-row"><span>Time it will take</span><b id="ansTime">${timeTxt(r.minutes)}</b></div>
+    <p class="notice ${verdict[0]}"><span><b>${verdict[1]}</b>${r.verdict === 'min' ? '' : ` You earn about ${pounds0(r.perHour)} for every hour you work.`}</span></p>
+  </section>
+  <div class="row"><button class="primary big-btn" id="qorder" type="button">Start an order with these figures</button></div>
+  <details class="howto"><summary>Show how this was worked out</summary><div class="stack">
   <section class="card"><h3>What the customer pays</h3><div class="total">
     ${r.lines.map(l => row(`${l.qty} × ${esc(l.style)} at ${gbp(l.price)}`, gbp(l.total))).join('')}
     ${r.charge.wrapping ? row('Individual wrapping', gbp(r.charge.wrapping)) : ''}${r.charge.cutters ? row('Cutters', gbp(r.charge.cutters)) : ''}${r.charge.delivery ? row(r.drive ? `Personal delivery (${r.drive.miles} miles there and back)` : esc(q.delivery), gbp(r.charge.delivery)) : ''}
     ${row('Total to charge', gbp(r.charge.total), 'big')}${row('Deposit to take (50%)', gbp(r.deposit))}</div>
-    <p class="hint">${r.n} biscuits, so the ${TIER_NAMES[r.tier]} price is used.</p></section>
+    <p class="hint">${r.n} biscuits, so the ${TIER_NAMES[r.tier]} biscuits price is used.</p></section>
   <section class="card"><h3>What it costs you</h3><div class="total">
     ${row('Ingredients (biscuit and icing)', gbp(r.cost.ingredients))}${r.cost.toppers ? row(`Toppers (buy ${esc(sheetTxt)})`, gbp(r.cost.toppers)) : ''}
     ${row(`Boxes (${boxTxt})`, gbp(r.cost.boxes))}${r.cost.bagsBows ? row('Bows', gbp(r.cost.bagsBows)) : ''}
     ${r.cost.cutters ? row('Cutters', gbp(r.cost.cutters)) : ''}${r.cost.postage ? row(r.drive ? `Petrol (${r.drive.miles} miles at ${(r.drive.perMile).toFixed(1)}p a mile)` : 'Postage', gbp(r.cost.postage)) : ''}
     ${row('Total costs', gbp(r.cost.total), 'big')}${row('Profit (money you keep)', `<span class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</span>`, 'big')}</div></section>
-  <div class="row"><button class="primary" id="qorder" type="button">Start an order with these figures</button></div>`;
+  </div></details>`;
+  if (wasOpen) out.querySelector('details.howto').open = true;
   out.querySelector('#qorder').onclick = () => {
     let d = {}; try { d = JSON.parse(localStorage.getItem(DRAFT)) || {}; } catch (e) {}
     const pounds = p => (p / 100).toFixed(2), post = r.charge.delivery > 0;

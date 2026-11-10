@@ -128,3 +128,22 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:0}
 @media (max-width:640px){.qcar{grid-template-columns:minmax(0,1fr)}}
 .qcar[hidden]{display:none}
 #qfind{white-space:nowrap;flex:none}
+
+/* Price it: the answer, big and plain */
+.answer{background:var(--surface);border:2px solid var(--accent);border-radius:12px;padding:16px;display:grid;gap:2px}
+.ans-main{display:grid;gap:2px;padding-bottom:10px;margin-bottom:6px;border-bottom:1px solid var(--line)}
+.ans-main span{font-weight:700;color:var(--muted)}
+.ans-main b{font:400 40px/1.1 var(--display);color:var(--accent)}
+.ans-row{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:7px 0;font-size:17px;border-bottom:1px solid var(--line)}
+.ans-row b{font-size:19px;white-space:nowrap}
+.ans-row.keep b{color:var(--good);font-size:22px}
+.answer .notice{margin:10px 0 0}
+.big-btn{width:100%;min-height:52px;font-size:17px}
+.howto{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 14px}
+.howto summary{cursor:pointer;font-weight:700;padding:14px 0;min-height:48px;box-sizing:border-box}
+.howto[open]{padding-bottom:14px}
+/* Menu fits every phone: five equal buttons, words can go onto two lines */
+@media (max-width:440px){
+  nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0}
+  nav a{white-space:normal;text-align:center;font-size:13.5px;line-height:1.2;padding:8px 2px 9px;min-height:48px;display:flex;align-items:center;justify-content:center}
+}
