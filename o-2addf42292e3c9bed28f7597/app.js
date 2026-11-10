@@ -120,7 +120,17 @@ function viewOrder() {
 }
 
 /* price an order */
-S.pq = {lines: [{style: 'Logo / photo topper', qty: '', topper: 'Toppers 12 x 7cm'}], wrapped: false, delivery: 'Collection', shapes: '', customCutter: false};
+S.pq = {lines: [{style: 'Logo / photo topper', qty: '', topper: 'Toppers 12 x 7cm'}], wrapped: false, delivery: 'Collection', shapes: '', customCutter: false, postcode: '', miles: '', petrol: PRICING.car.petrol, mpg: PRICING.car.mpg};
+const CAR = 'tina-car';
+try { const c = JSON.parse(localStorage.getItem(CAR)) || {}; if (c.petrol > 0) S.pq.petrol = c.petrol; if (c.mpg > 0) S.pq.mpg = c.mpg; } catch (e) {}
+const homeAt = {};
+async function postcodeAt(p) {
+  const r = await fetch('https://api.postcodes.io/postcodes/' + encodeURIComponent(p.replace(/\s+/g, '')));
+  if (r.status === 404) { const e = new Error('not found'); e.code = 'nf'; throw e; }
+  if (!r.ok) throw new Error('lookup');
+  const d = (await r.json()).result; return {lat: d.latitude, lon: d.longitude, postcode: d.postcode};
+}
+const mapsUrl = pc => 'https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=' + encodeURIComponent(PRICING.car.home) + '&destination=' + encodeURIComponent(PRICING.car.home) + '&waypoints=' + encodeURIComponent(pc);
 const TIER_NAMES = ['6–49', '50–99', '100–199', '200+'];
 function viewPrice() {
   const q = S.pq, opt = (list, v) => list.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
@@ -135,6 +145,13 @@ function viewPrice() {
   <fieldset><legend>Extras</legend>
     <label class="tick full"><input type="checkbox" id="qwrap" ${q.wrapped ? 'checked' : ''}>Individually wrapped with a bow (${gbp(PRICING.wrap)} each)</label>
     <div class="f"><label for="qdel">Delivery</label><select id="qdel">${opt(Object.keys(PRICING.delivery), q.delivery)}</select></div>
+    <div id="qcar" class="full qcar" ${q.delivery === 'Personal delivery' ? '' : 'hidden'}>
+      <div class="f"><label for="qpc">Delivery postcode</label><div class="row" style="flex-wrap:nowrap"><input type="text" id="qpc" autocomplete="off" autocapitalize="characters" placeholder="e.g. EN1 3PL" value="${esc(q.postcode)}" style="flex:1 1 auto"><button type="button" id="qfind">Work out miles</button></div></div>
+      <div class="f"><label for="qmiles">Miles there and back</label><input type="number" id="qmiles" min="0" step="0.1" inputmode="decimal" value="${esc(q.miles)}"><span class="hint" id="qmhint">From ${esc(PRICING.car.home)} to the customer and back. You can type your own miles.</span></div>
+      <p class="err" id="qcarErr" role="alert" hidden></p>
+      <div class="f"><label for="qpetrol">Petrol price per litre</label><div class="money"><input type="number" id="qpetrol" min="0" step="0.01" inputmode="decimal" value="${(q.petrol / 100).toFixed(2)}"></div></div>
+      <div class="f"><label for="qmpg">Your car's miles per gallon</label><input type="number" id="qmpg" min="1" step="1" inputmode="numeric" value="${esc(q.mpg)}"><span class="hint">Remembered on this device.</span></div>
+    </div>
     <div class="f"><label for="qshapes">Shapes you don't have a cutter for</label><input type="number" id="qshapes" min="0" step="1" inputmode="numeric" value="${esc(q.shapes)}"><span class="hint">${gbp(PRICING.firstCutter)} for the first, ${gbp(PRICING.extraCutter)} each after</span></div>
     <label class="tick full"><input type="checkbox" id="qcustom" ${q.customCutter ? 'checked' : ''}>Custom cutter or stamp (${gbp(PRICING.customCutter)})</label>
   </fieldset>
@@ -153,8 +170,28 @@ function viewPrice() {
   f.addEventListener('input', e => { const ln = e.target.closest('.qline');
     if (ln) q.lines[ln.dataset.i][e.target.dataset.k] = e.target.value;
     q.wrapped = f.querySelector('#qwrap').checked; q.delivery = f.querySelector('#qdel').value; q.shapes = f.querySelector('#qshapes').value; q.customCutter = f.querySelector('#qcustom').checked;
+    f.querySelector('#qcar').hidden = q.delivery !== 'Personal delivery';
+    q.postcode = f.querySelector('#qpc').value; q.miles = f.querySelector('#qmiles').value;
+    const pt = Math.round(parseFloat(f.querySelector('#qpetrol').value) * 100), mg = parseFloat(f.querySelector('#qmpg').value);
+    q.petrol = pt > 0 ? pt : PRICING.car.petrol; q.mpg = mg > 0 ? mg : PRICING.car.mpg;
+    if (e.target.id === 'qpetrol' || e.target.id === 'qmpg') { try { localStorage.setItem(CAR, JSON.stringify({petrol: q.petrol, mpg: q.mpg})); } catch (x) {} }
     showQuote(); });
   f.addEventListener('change', e => { if (e.target.type !== 'number') f.dispatchEvent(new Event('input')); });
+  const findMiles = async () => {
+    const err = f.querySelector('#qcarErr'), btn = f.querySelector('#qfind'), pc = f.querySelector('#qpc').value.trim(); err.hidden = true;
+    if (!pc) { err.textContent = 'Type the delivery postcode first.'; err.hidden = false; return; }
+    btn.disabled = true; btn.textContent = 'Working it out…';
+    try {
+      homeAt.v ||= await postcodeAt(PRICING.car.home);
+      const dest = await postcodeAt(pc), miles = roundTripMiles(homeAt.v, dest);
+      f.querySelector('#qpc').value = dest.postcode; f.querySelector('#qmiles').value = miles;
+      f.querySelector('#qmhint').innerHTML = `About ${miles} miles from ${esc(PRICING.car.home)} to ${esc(dest.postcode)} and back. <a href="${esc(mapsUrl(dest.postcode))}" target="_blank" rel="noopener">Check the route on Google Maps</a> and type the exact miles if you like.`;
+      f.dispatchEvent(new Event('input'));
+    } catch (x) { err.textContent = x.code === 'nf' ? "That postcode wasn't found. Check it and try again." : "The miles couldn't be worked out. Check your connection, or type the miles yourself."; err.hidden = false; }
+    btn.disabled = false; btn.textContent = 'Work out miles';
+  };
+  f.querySelector('#qfind').onclick = findMiles;
+  f.querySelector('#qpc').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findMiles(); } });
   f.querySelector('#qadd').onclick = () => { q.lines.push({style: 'Simple fondant personalisation', qty: '', topper: 'No toppers'}); drawLines(); showQuote(); box.querySelector(`#qn${q.lines.length - 1}`).focus(); };
   box.addEventListener('click', e => { const x = e.target.closest('[data-x]'); if (!x) return; q.lines.splice(+x.dataset.x, 1); drawLines(); showQuote(); });
 }
@@ -167,7 +204,7 @@ function showQuote() {
     low: ['warn', `⚠ Too cheap. You'd earn ${gbp(r.perHour)} an hour, under your ${gbp(PRICING.hourly)} rate. Charge more or change the toppers.`]}[r.verdict];
   const boxTxt = [r.boxes.big && r.boxes.big + ' big', r.boxes.large && r.boxes.large + ' large', r.boxes.small && r.boxes.small + ' small'].filter(Boolean).join(', ');
   const sheetTxt = r.sheets.map(s => s.sheets + ' × ' + s.topper.replace('Toppers ', '')).join(', ');
-  out.innerHTML = `<div class="notice ${verdict[0]}"><span><b>${verdict[1]}</b></span></div>
+  out.innerHTML = `${r.drive && !r.drive.miles ? '<div class="notice warn"><span>Add the delivery postcode and press Work out miles to include the petrol.</span></div>' : ''}<div class="notice ${verdict[0]}"><span><b>${verdict[1]}</b></span></div>
   <div class="stats">
     <div class="stat"><b>${gbp(r.charge.total)}</b><span>Charge the customer</span></div>
     <div class="stat"><b class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</b><span>Your profit</span></div>
@@ -176,13 +213,13 @@ function showQuote() {
   </div>
   <section class="card"><h3>What the customer pays</h3><div class="total">
     ${r.lines.map(l => row(`${l.qty} × ${esc(l.style)} at ${gbp(l.price)}`, gbp(l.total))).join('')}
-    ${r.charge.wrapping ? row('Individual wrapping', gbp(r.charge.wrapping)) : ''}${r.charge.cutters ? row('Cutters', gbp(r.charge.cutters)) : ''}${r.charge.delivery ? row(esc(q.delivery), gbp(r.charge.delivery)) : ''}
+    ${r.charge.wrapping ? row('Individual wrapping', gbp(r.charge.wrapping)) : ''}${r.charge.cutters ? row('Cutters', gbp(r.charge.cutters)) : ''}${r.charge.delivery ? row(r.drive ? `Personal delivery (${r.drive.miles} miles there and back)` : esc(q.delivery), gbp(r.charge.delivery)) : ''}
     ${row('Total to charge', gbp(r.charge.total), 'big')}${row('Deposit to take (50%)', gbp(r.deposit))}</div>
     <p class="hint">${r.n} biscuits, so the ${TIER_NAMES[r.tier]} price is used.</p></section>
   <section class="card"><h3>What it costs you</h3><div class="total">
     ${row('Ingredients (biscuit and icing)', gbp(r.cost.ingredients))}${r.cost.toppers ? row(`Toppers (buy ${esc(sheetTxt)})`, gbp(r.cost.toppers)) : ''}
     ${row(`Boxes (${boxTxt})`, gbp(r.cost.boxes))}${r.cost.bagsBows ? row('Bows', gbp(r.cost.bagsBows)) : ''}
-    ${r.cost.cutters ? row('Cutters', gbp(r.cost.cutters)) : ''}${r.cost.postage ? row('Postage', gbp(r.cost.postage)) : ''}
+    ${r.cost.cutters ? row('Cutters', gbp(r.cost.cutters)) : ''}${r.cost.postage ? row(r.drive ? `Petrol (${r.drive.miles} miles at ${(r.drive.perMile).toFixed(1)}p a mile)` : 'Postage', gbp(r.cost.postage)) : ''}
     ${row('Total costs', gbp(r.cost.total), 'big')}${row('Profit (money you keep)', `<span class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</span>`, 'big')}</div></section>
   <div class="row"><button class="primary" id="qorder" type="button">Start an order with these figures</button></div>`;
   out.querySelector('#qorder').onclick = () => {
@@ -192,7 +229,8 @@ function showQuote() {
       details: [r.lines.map(l => `${l.qty} × ${l.style}${PRICING.toppers[l.topper] ? ' (' + l.topper + ')' : ''}`).join('\n'), d.details].filter(Boolean).join('\n\n'),
       cellophane: !!q.wrapped, bow: q.wrapped ? 'with' : (d.bow || ''),
       fulfilment: post ? 'delivery' : (d.fulfilment || 'collection'), deliveryFee: post ? pounds(r.charge.delivery) : '',
-      costs: [['Ingredients', r.cost.ingredients], ['Toppers' + (sheetTxt ? ' (' + sheetTxt + ')' : ''), r.cost.toppers], ['Boxes (' + boxTxt + ')', r.cost.boxes], ['Bows', r.cost.bagsBows], ['Cutters', r.cost.cutters], ['Postage', r.cost.postage]]
+      deliveryAddress: d.deliveryAddress || (r.drive && q.postcode ? q.postcode.toUpperCase() : ''),
+      costs: [['Ingredients', r.cost.ingredients], ['Toppers' + (sheetTxt ? ' (' + sheetTxt + ')' : ''), r.cost.toppers], ['Boxes (' + boxTxt + ')', r.cost.boxes], ['Bows', r.cost.bagsBows], ['Cutters', r.cost.cutters], [r.drive ? `Petrol (${r.drive.miles} miles)` : 'Postage', r.cost.postage]]
         .filter(([, a]) => a).map(([item, a]) => ({item, amount: pounds(a)}))});
     try { localStorage.setItem(DRAFT, JSON.stringify(d)); } catch (e) {}
     location.hash = '#new-order'; toast('Prices added. Fill in the customer and dates.');

@@ -123,3 +123,8 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:0}
 .qline:last-child{border-bottom:0;padding-bottom:0}
 .qx{height:42px;padding:0}
 @media (max-width:640px){.qline{grid-template-columns:minmax(0,1fr) 96px}.qline .f:nth-child(3){grid-column:1}.qx{grid-column:2;grid-row:2}}
+.qcar{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr));padding:12px;border-radius:8px;background:var(--sunk)}
+.qcar .f:first-child,.qcar .err{grid-column:1/-1}
+@media (max-width:640px){.qcar{grid-template-columns:minmax(0,1fr)}}
+.qcar[hidden]{display:none}
+#qfind{white-space:nowrap;flex:none}

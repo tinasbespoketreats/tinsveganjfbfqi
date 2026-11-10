@@ -64,7 +64,9 @@ const PRICING = {
   },
   tiers: [0, 50, 100, 200],
   wrap: 40, firstCutter: 800, extraCutter: 400, customCutter: 1200,
-  delivery: {'Collection': 0, 'Royal Mail – small': 900, 'Royal Mail – medium': 1200, 'Royal Mail – large': 1800},
+  delivery: {'Collection': 0, 'Personal delivery': 0, 'Royal Mail – small': 900, 'Royal Mail – medium': 1200, 'Royal Mail – large': 1800},
+  // Personal delivery: petrol in pence per litre, car miles per gallon (UK), and the extra distance roads add to a straight line.
+  car: {home: 'N9 7LJ', petrol: 179, mpg: 40, roadFactor: 1.3},
   base: {flour: [80, 120], sugar: [225, 150], vitalite: [200, 44], vanilla: [899, 300]},
   icing: {fondant: [290, 40], royal: [265, 60]},
   toppers: {'Toppers 12 x 7cm': [834, 12], 'Toppers 6 x 7cm': [761, 6], 'Toppers custom shape': [551, 9]},
@@ -72,6 +74,14 @@ const PRICING = {
   hourly: 1500, minOrder: 6, bakeMins: 4, bakeMinsBig: 3,
 };
 const each = ([price, n]) => price / n;
+const LITRES_PER_GALLON = 4.54609;
+const fuelPence = (miles, petrol, mpg) => mpg > 0 ? miles * petrol * LITRES_PER_GALLON / mpg : 0;
+// Straight-line miles between two points, then the road factor, there and back.
+function roundTripMiles(a, b, roadFactor = PRICING.car.roadFactor) {
+  const R = 3958.8, rad = d => d * Math.PI / 180, dLat = rad(b.lat - a.lat), dLon = rad(b.lon - a.lon);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)) * roadFactor * 2 * 10) / 10;
+}
 function quote(q, cfg = PRICING) {
   const lines = (q.lines || []).map(l => ({...l, qty: Math.max(0, Math.floor(+l.qty || 0))})).filter(l => l.qty && cfg.styles[l.style]);
   const n = lines.reduce((t, l) => t + l.qty, 0);
@@ -84,6 +94,9 @@ function quote(q, cfg = PRICING) {
     cutters: (shapes ? cfg.firstCutter + (shapes - 1) * cfg.extraCutter : 0) + (q.customCutter ? cfg.customCutter : 0),
     delivery: cfg.delivery[q.delivery] || 0,
   };
+  const drive = q.delivery === 'Personal delivery', miles = drive ? Math.max(0, +q.miles || 0) : 0;
+  const petrol = q.petrol > 0 ? +q.petrol : cfg.car.petrol, mpg = q.mpg > 0 ? +q.mpg : cfg.car.mpg, fuel = fuelPence(miles, petrol, mpg);
+  if (drive) charge.delivery = Math.ceil(Math.round(fuel) / 100) * 100; // petrol rounded up to the next whole pound
   charge.total = charge.biscuits + charge.wrapping + charge.cutters + charge.delivery;
   const base = Object.values(cfg.base).reduce((t, c) => t + each(c), 0);
   const byTopper = {}; lines.forEach(l => { if (cfg.toppers[l.topper]) byTopper[l.topper] = (byTopper[l.topper] || 0) + l.qty; });
@@ -98,7 +111,7 @@ function quote(q, cfg = PRICING) {
     toppers: sheets.reduce((t, s) => t + s.sheets * cfg.toppers[s.topper][0], 0),
     boxes: boxes.big * each(cfg.bigBox) + boxes.large * each(cfg.largeBox) + boxes.small * each(cfg.smallBox),
     bagsBows: q.wrapped ? n * each(cfg.bow) : 0,
-    cutters: charge.cutters, postage: charge.delivery,
+    cutters: charge.cutters, postage: drive ? fuel : charge.delivery,
   };
   const costTotal = Math.round(Object.values(cost).reduce((t, v) => t + v, 0));
   Object.keys(cost).forEach(k => cost[k] = Math.round(cost[k]));
@@ -106,8 +119,8 @@ function quote(q, cfg = PRICING) {
   cost.total = costTotal;
   const minutes = n * (n >= cfg.tiers[1] ? cfg.bakeMinsBig : cfg.bakeMins) + lines.reduce((t, l) => t + l.qty * cfg.styles[l.style].mins, 0) + (q.wrapped ? n : 0);
   const profit = charge.total - costTotal, hours = minutes / 60, perHour = hours ? Math.round(profit / hours) : 0;
-  return {n, tier, lines: priced, boxes, charge, deposit: Math.round(charge.total / 2), cost, sheets, profit, minutes, hours, perHour,
+  return {n, tier, lines: priced, boxes, drive: drive ? {miles, petrol, mpg, perMile: fuelPence(1, petrol, mpg), fuel: Math.round(fuel)} : null, charge, deposit: Math.round(charge.total / 2), cost, sheets, profit, minutes, hours, perHour,
     verdict: !n ? 'empty' : n < cfg.minOrder ? 'min' : perHour >= cfg.hourly ? 'good' : 'low'};
 }
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-if (typeof module !== 'undefined') module.exports = {SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays, PRICING, quote};
+if (typeof module !== 'undefined') module.exports = {SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays, PRICING, quote, fuelPence, roundTripMiles};
