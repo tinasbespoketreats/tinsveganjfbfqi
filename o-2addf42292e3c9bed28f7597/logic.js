@@ -68,8 +68,8 @@ const PRICING = {
   base: {flour: [80, 120], sugar: [225, 150], vitalite: [200, 44], vanilla: [899, 300]},
   icing: {fondant: [290, 40], royal: [265, 60]},
   toppers: {'Toppers 12 x 7cm': [834, 12], 'Toppers 6 x 7cm': [761, 6], 'Toppers custom shape': [551, 9]},
-  bow: [225, 31], box: [582, 8],
-  perBox: 6, hourly: 1500, minOrder: 6, bakeMins: 4, bakeMinsBig: 3,
+  bow: [225, 31], largeBox: [582, 8], smallBox: [874, 14], largeHolds: 40, smallHolds: 8,
+  hourly: 1500, minOrder: 6, bakeMins: 4, bakeMinsBig: 3,
 };
 const each = ([price, n]) => price / n;
 function quote(q, cfg = PRICING) {
@@ -88,10 +88,12 @@ function quote(q, cfg = PRICING) {
   const base = Object.values(cfg.base).reduce((t, c) => t + each(c), 0);
   const byTopper = {}; lines.forEach(l => { if (cfg.toppers[l.topper]) byTopper[l.topper] = (byTopper[l.topper] || 0) + l.qty; });
   const sheets = Object.entries(byTopper).map(([k, qty]) => ({topper: k, sheets: Math.ceil(qty / cfg.toppers[k][1])}));
+  // Whole boxes only: large boxes hold up to 40, and what's left over goes in a small box if it fits (up to 8).
+  const left = n % cfg.largeHolds, boxes = {large: Math.floor(n / cfg.largeHolds) + (left > cfg.smallHolds ? 1 : 0), small: left && left <= cfg.smallHolds ? 1 : 0};
   const cost = {
     ingredients: n * base + lines.reduce((t, l) => t + l.qty * each(cfg.icing[cfg.styles[l.style].icing]), 0),
     toppers: sheets.reduce((t, s) => t + s.sheets * cfg.toppers[s.topper][0], 0),
-    boxes: Math.ceil(n / cfg.perBox) * each(cfg.box),
+    boxes: boxes.large * each(cfg.largeBox) + boxes.small * each(cfg.smallBox),
     bagsBows: q.wrapped ? n * each(cfg.bow) : 0,
     cutters: charge.cutters, postage: charge.delivery,
   };
@@ -101,7 +103,7 @@ function quote(q, cfg = PRICING) {
   cost.total = costTotal;
   const minutes = n * (n >= cfg.tiers[1] ? cfg.bakeMinsBig : cfg.bakeMins) + lines.reduce((t, l) => t + l.qty * cfg.styles[l.style].mins, 0) + (q.wrapped ? n : 0);
   const profit = charge.total - costTotal, hours = minutes / 60, perHour = hours ? Math.round(profit / hours) : 0;
-  return {n, tier, lines: priced, charge, deposit: Math.round(charge.total / 2), cost, sheets, profit, minutes, hours, perHour,
+  return {n, tier, lines: priced, boxes, charge, deposit: Math.round(charge.total / 2), cost, sheets, profit, minutes, hours, perHour,
     verdict: !n ? 'empty' : n < cfg.minOrder ? 'min' : perHour >= cfg.hourly ? 'good' : 'low'};
 }
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
