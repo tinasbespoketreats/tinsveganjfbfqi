@@ -68,7 +68,7 @@ const PRICING = {
   base: {flour: [80, 120], sugar: [225, 150], vitalite: [200, 44], vanilla: [899, 300]},
   icing: {fondant: [290, 40], royal: [265, 60]},
   toppers: {'Toppers 12 x 7cm': [834, 12], 'Toppers 6 x 7cm': [761, 6], 'Toppers custom shape': [551, 9]},
-  bow: [225, 31], largeBox: [582, 8], smallBox: [874, 14], largeHolds: 40, smallHolds: 8,
+  bow: [225, 31], bigBox: [1299, 5], largeBox: [582, 8], smallBox: [874, 14], bigHolds: 200, bigFrom: 80, largeHolds: 40, smallHolds: 8,
   hourly: 1500, minOrder: 6, bakeMins: 4, bakeMinsBig: 3,
 };
 const each = ([price, n]) => price / n;
@@ -88,12 +88,15 @@ function quote(q, cfg = PRICING) {
   const base = Object.values(cfg.base).reduce((t, c) => t + each(c), 0);
   const byTopper = {}; lines.forEach(l => { if (cfg.toppers[l.topper]) byTopper[l.topper] = (byTopper[l.topper] || 0) + l.qty; });
   const sheets = Object.entries(byTopper).map(([k, qty]) => ({topper: k, sheets: Math.ceil(qty / cfg.toppers[k][1])}));
-  // Whole boxes only: large boxes hold up to 40, and what's left over goes in a small box if it fits (up to 8).
-  const left = n % cfg.largeHolds, boxes = {large: Math.floor(n / cfg.largeHolds) + (left > cfg.smallHolds ? 1 : 0), small: left && left <= cfg.smallHolds ? 1 : 0};
+  // Whole boxes only. 80+ biscuits: big boxes (up to 200 each), and a leftover of 80+ gets another big box.
+  // The rest go in large boxes (up to 40), with a small box (up to 8) for a leftover that fits.
+  const bigRest = n % cfg.bigHolds, big = n < cfg.bigFrom ? 0 : Math.floor(n / cfg.bigHolds) + (bigRest >= cfg.bigFrom ? 1 : 0);
+  const rest = n < cfg.bigFrom ? n : bigRest >= cfg.bigFrom ? 0 : bigRest, left = rest % cfg.largeHolds;
+  const boxes = {big, large: Math.floor(rest / cfg.largeHolds) + (left > cfg.smallHolds ? 1 : 0), small: left && left <= cfg.smallHolds ? 1 : 0};
   const cost = {
     ingredients: n * base + lines.reduce((t, l) => t + l.qty * each(cfg.icing[cfg.styles[l.style].icing]), 0),
     toppers: sheets.reduce((t, s) => t + s.sheets * cfg.toppers[s.topper][0], 0),
-    boxes: boxes.large * each(cfg.largeBox) + boxes.small * each(cfg.smallBox),
+    boxes: boxes.big * each(cfg.bigBox) + boxes.large * each(cfg.largeBox) + boxes.small * each(cfg.smallBox),
     bagsBows: q.wrapped ? n * each(cfg.bow) : 0,
     cutters: charge.cutters, postage: charge.delivery,
   };

@@ -165,7 +165,7 @@ function showQuote() {
   const verdict = {min: ['bad', `The minimum order is ${PRICING.minOrder} biscuits.`],
     good: ['good', `✓ Good price. You earn ${gbp(r.perHour)} an hour, at least your ${gbp(PRICING.hourly)} rate.`],
     low: ['warn', `⚠ Too cheap. You'd earn ${gbp(r.perHour)} an hour, under your ${gbp(PRICING.hourly)} rate. Charge more or change the toppers.`]}[r.verdict];
-  const boxTxt = [r.boxes.large && r.boxes.large + ' large', r.boxes.small && r.boxes.small + ' small'].filter(Boolean).join(', ');
+  const boxTxt = [r.boxes.big && r.boxes.big + ' big', r.boxes.large && r.boxes.large + ' large', r.boxes.small && r.boxes.small + ' small'].filter(Boolean).join(', ');
   const sheetTxt = r.sheets.map(s => s.sheets + ' × ' + s.topper.replace('Toppers ', '')).join(', ');
   out.innerHTML = `<div class="notice ${verdict[0]}"><span><b>${verdict[1]}</b></span></div>
   <div class="stats">
