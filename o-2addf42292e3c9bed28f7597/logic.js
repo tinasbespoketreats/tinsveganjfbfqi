@@ -57,13 +57,13 @@ function calUrl(title, details, date, time) {
 // Money in pence. Costs are [pack price, biscuits one pack does].
 const PRICING = {
   styles: {
-    'Simple fondant personalisation': {prices: [320, 280, 260, 240], mins: 2, icing: 'fondant'},
+    'Simple fondant': {prices: [320, 280, 260, 240], mins: 2, icing: 'fondant'},
     'Logo / photo topper': {prices: [350, 300, 275, 250], mins: 3, icing: 'fondant'},
     'Simple hand-piped': {prices: [375, 340, 320, 300], mins: 5, icing: 'royal'},
     'Detailed hand-piped': {prices: [400, 400, 400, 400], mins: 12, icing: 'royal'},
   },
   tiers: [0, 50, 100, 200],
-  wrap: 40, firstCutter: 800, extraCutter: 400, customCutter: 1200,
+  wrap: 20, firstCutter: 800, extraCutter: 400, customCutter: 1200,
   delivery: {'Collection': 0, 'Personal delivery': 0, 'Royal Mail – small': 900, 'Royal Mail – medium': 1200, 'Royal Mail – large': 1800},
   // Personal delivery: petrol in pence per litre, car miles per gallon (UK), and the extra distance roads add to a straight line.
   // Customer pays 74.4p a mile there and back (so the E10 6EN trip, 12.9 miles, is the £9.60 Tina charged), rounded up to 10p, £5 minimum.

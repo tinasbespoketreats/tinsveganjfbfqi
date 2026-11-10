@@ -192,7 +192,7 @@ function viewPrice() {
   };
   f.querySelector('#qfind').onclick = findMiles;
   f.querySelector('#qpc').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findMiles(); } });
-  f.querySelector('#qadd').onclick = () => { q.lines.push({style: 'Simple fondant personalisation', qty: '', topper: 'No toppers'}); drawLines(); showQuote(); box.querySelector(`#qn${q.lines.length - 1}`).focus(); };
+  f.querySelector('#qadd').onclick = () => { q.lines.push({style: 'Simple fondant', qty: '', topper: 'No toppers'}); drawLines(); showQuote(); box.querySelector(`#qn${q.lines.length - 1}`).focus(); };
   box.addEventListener('click', e => { const x = e.target.closest('[data-x]'); if (!x) return; q.lines.splice(+x.dataset.x, 1); drawLines(); showQuote(); });
 }
 function showQuote() {
