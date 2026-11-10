@@ -59,8 +59,9 @@ const PRICING = {
   styles: {
     'Simple fondant': {prices: [320, 280, 260, 240], mins: 2, icing: 'fondant'},
     'Logo / photo topper': {prices: [350, 300, 275, 250], mins: 3, icing: 'fondant'},
-    'Simple hand-piped': {prices: [375, 340, 320, 300], mins: 5, icing: 'royal'},
-    'Detailed hand-piped': {prices: [400, 400, 400, 400], mins: 12, icing: 'royal'},
+    'Simple hand-piped': {prices: [350, 320, 300, 280], mins: 5, icing: 'royal'},
+    'Hand-piped design': {prices: [380, 350, 330, 310], mins: 8, icing: 'royal'},
+    'Detailed hand-piped design': {prices: [400, 390, 380, 370], mins: 12, icing: 'royal'},
   },
   tiers: [0, 50, 100, 200],
   wrap: 20, firstCutter: 800, extraCutter: 400, customCutter: 1200,
