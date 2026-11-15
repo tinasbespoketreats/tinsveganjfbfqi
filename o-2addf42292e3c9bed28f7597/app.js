@@ -4,6 +4,7 @@ const app = document.getElementById('app');
 const S = {orders: [], expenses: [], db: null, ready: {o: false, e: false}, stale: false, failed: false, year: null, ym: null, q: '', status: 'Active', open: null, dirty: false, downloads: null, uc: null};
 const STATUSES = ['Confirmed', 'In progress', 'Ready', 'Completed', 'Cancelled'];
 const CATS = ['Ingredients', 'Packaging', 'Equipment', 'Delivery and travel', 'Marketing', 'Fees', 'Other'];
+const UC_TYPE = {Ingredients: 'Goods and materials', Packaging: 'Goods and materials', Equipment: 'Office and equipment costs', Marketing: 'Marketing and advertising'};
 const DRAFT = 'tina-order-draft';
 const today = () => iso(new Date());
 S.ym = today().slice(0, 7); S.year = today().slice(0, 4);
@@ -434,6 +435,7 @@ function viewMoney() {
       <div class="stat"><b>${gbp(uc.totalOut)}</b><span>Expenses paid</span></div>
       <div class="stat uc-result"><b class="${uc.profit < 0 ? 'neg' : ''}">${gbp(uc.profit)}</b><span>${uc.profit < 0 ? 'Loss' : 'Profit'} for this period</span></div>
     </div>
+    ${uc.totalOut ? `<div class="stack" style="gap:6px"><h4 style="margin:0">Expenses by type, for your UC journal</h4><div class="total">${Object.entries(uc.byType).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div><span>${esc(k)}${UC_TYPE[k] ? ` <span class="muted">→ UC: ${UC_TYPE[k]}</span>` : ''}</span><span>${gbp(v)}</span></div>`).join('')}<div class="big"><span>Total expenses</span><span>${gbp(uc.totalOut)}</span></div></div></div>` : ''}
     <details><summary>Show what's counted</summary><div class="stack" style="margin-top:10px">
       <h4 style="margin:0">Money in</h4>${ucRows(uc.moneyIn, 'No money recorded as received in these dates.')}
       ${uc.moneyIn.some(r => r.guessed) ? '<p class="small muted">* No deposit date was entered, so the date the order was added is used. Add the real date in the order if it was different.</p>' : ''}

@@ -78,8 +78,9 @@ function ucPeriod(from, to, orders, expenses) {
   }
   const by = (a, b) => a.date.localeCompare(b.date), add = l => l.reduce((t, r) => t + r.amount, 0);
   moneyIn.sort(by); moneyOut.sort(by); owed.sort(by);
-  const totalIn = add(moneyIn), totalOut = add(moneyOut);
-  return {from, to, moneyIn, moneyOut, owed, totalIn, totalOut, profit: totalIn - totalOut, estCosts, totalOwed: add(owed)};
+  const totalIn = add(moneyIn), totalOut = add(moneyOut), byType = {};
+  for (const r of moneyOut) { const k = r.where || 'Other'; byType[k] = (byType[k] || 0) + r.amount; }
+  return {from, to, moneyIn, moneyOut, owed, totalIn, totalOut, profit: totalIn - totalOut, estCosts, totalOwed: add(owed), byType};
 }
 function calUrl(title, details, date, time) {
   const c = s => s.replace(/[-:]/g, '');
