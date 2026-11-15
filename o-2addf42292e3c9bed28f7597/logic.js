@@ -46,6 +46,41 @@ function month(ym, orders, expenses) {
   r.income = r.orderIncome + r.otherIncome; r.expenses = r.orderCosts + r.otherCosts + r.other; r.profit = r.income - r.expenses;
   return r;
 }
+/* ---------- Universal Credit assessment period: money actually in and out between two dates ---------- */
+// Period runs from the start day of one month to the day before it next month (15th to 14th by default).
+function ucDefault(todayIso, startDay = 15) {
+  const [y, m, d] = todayIso.split('-').map(Number);
+  const pad = n => String(n).padStart(2, '0'), ym = (yy, mm) => mm < 1 ? [yy - 1, mm + 12] : mm > 12 ? [yy + 1, mm - 12] : [yy, mm];
+  const [fy, fm] = d >= startDay ? [y, m] : ym(y, m - 1);
+  const from = `${fy}-${pad(fm)}-${pad(startDay)}`, [ty, tm] = ym(fy, fm + 1);
+  return {from, to: addDays(`${ty}-${pad(tm)}-${pad(startDay)}`, -1)};
+}
+function ucShift(p, months, startDay = 15) {
+  const [y, m] = p.from.split('-').map(Number), t = new Date(Date.UTC(y, m - 1 + months, 15));
+  return ucDefault(`${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`, startDay);
+}
+function ucPeriod(from, to, orders, expenses) {
+  const inP = d => !!d && d >= from && d <= to, moneyIn = [], moneyOut = [], owed = [];
+  let estCosts = 0;
+  for (const o of orders) {
+    const s = sums(o), who = o.customerName || 'Customer';
+    const depDate = o.depositDate || (o.createdAt || '').slice(0, 10);
+    const dep = Math.min(s.deposit, o.status === 'Cancelled' ? s.deposit : s.income);
+    if (dep > 0 && inP(depDate)) moneyIn.push({date: depDate, what: `${who}: deposit`, amount: dep, guessed: !o.depositDate});
+    const bal = Math.max(0, s.income - s.deposit);
+    if (o.balancePaid && bal > 0 && inP(o.balancePaidDate)) moneyIn.push({date: o.balancePaidDate, what: `${who}: balance`, amount: bal});
+    if (o.status !== 'Cancelled' && inP(o.eventDate)) { estCosts += s.costs; if (s.outstanding > 0) owed.push({date: o.eventDate, what: who, amount: s.outstanding}); }
+  }
+  for (const e of expenses) {
+    if (!inP(e.date)) continue;
+    const row = {date: e.date, what: e.item || '', amount: P(e.amount), where: e.source || e.category || ''};
+    (e.entryType === 'income' ? moneyIn : moneyOut).push(row);
+  }
+  const by = (a, b) => a.date.localeCompare(b.date), add = l => l.reduce((t, r) => t + r.amount, 0);
+  moneyIn.sort(by); moneyOut.sort(by); owed.sort(by);
+  const totalIn = add(moneyIn), totalOut = add(moneyOut);
+  return {from, to, moneyIn, moneyOut, owed, totalIn, totalOut, profit: totalIn - totalOut, estCosts, totalOwed: add(owed)};
+}
 function calUrl(title, details, date, time) {
   const c = s => s.replace(/[-:]/g, '');
   let dates;
@@ -127,4 +162,4 @@ function quote(q, cfg = PRICING) {
     verdict: !n ? 'empty' : n < cfg.minOrder ? 'min' : perHour >= cfg.hourly ? 'good' : 'low'};
 }
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-if (typeof module !== 'undefined') module.exports = {SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays, PRICING, quote, fuelPence, roundTripMiles};
+if (typeof module !== 'undefined') module.exports = {SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays, PRICING, quote, fuelPence, roundTripMiles, ucDefault, ucShift, ucPeriod};

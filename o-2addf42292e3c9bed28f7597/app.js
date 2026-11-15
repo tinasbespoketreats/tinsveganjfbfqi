@@ -1,7 +1,7 @@
 /* ---------- app ---------- */
 (() => {
 const app = document.getElementById('app');
-const S = {orders: [], expenses: [], db: null, ready: {o: false, e: false}, stale: false, failed: false, year: null, ym: null, q: '', status: 'Active', open: null, dirty: false, downloads: null};
+const S = {orders: [], expenses: [], db: null, ready: {o: false, e: false}, stale: false, failed: false, year: null, ym: null, q: '', status: 'Active', open: null, dirty: false, downloads: null, uc: null};
 const STATUSES = ['Confirmed', 'In progress', 'Ready', 'Completed', 'Cancelled'];
 const CATS = ['Ingredients', 'Packaging', 'Equipment', 'Delivery and travel', 'Marketing', 'Fees', 'Other'];
 const DRAFT = 'tina-order-draft';
@@ -422,8 +422,28 @@ function viewMoney() {
   const mo = S.orders.filter(o => o.status !== 'Cancelled' && (o.eventDate || '').startsWith(S.ym));
   const inMonth = S.expenses.filter(e => (e.date || '').startsWith(S.ym)).sort((a, b) => a.date.localeCompare(b.date));
   const ex = inMonth.filter(e => !e.source), oe = inMonth.filter(e => e.source);
+  S.uc ||= ucDefault(today());
+  const uc = ucPeriod(S.uc.from, S.uc.to, S.orders, S.expenses), dd = d => fmt(d, {day: 'numeric', month: 'short'});
+  const ucRows = (list, empty, extra) => list.length ? `<div class="total">${list.map(r => `<div><span>${dd(r.date)}${r.guessed ? ' *' : ''} · ${esc(r.what)}${extra && r.where ? ` <span class="muted">(${esc(r.where)})</span>` : ''}</span><span>${gbp(r.amount)}</span></div>`).join('')}</div>` : `<div class="empty">${empty}</div>`;
+  const ucHtml = `<section class="card uc" aria-labelledby="ucH"><div class="row between"><h3 id="ucH" style="margin:0">Universal Credit period</h3>
+    <div class="row"><button id="ucPrev" type="button" aria-label="Previous period">‹ Earlier</button><button id="ucNext" type="button" aria-label="Next period">Later ›</button></div></div>
+    <div class="row" style="align-items:end">${field('ucFrom', S.uc.from, 'From', 'date')}${field('ucTo', S.uc.to, 'To', 'date')}</div>
+    <p class="small muted">Counts only money that actually came in and expenses you actually paid between these dates, the way Universal Credit does. Check it against your bank statement.</p>
+    <div class="stats">
+      <div class="stat"><b>${gbp(uc.totalIn)}</b><span>Money in (${dd(uc.from)} – ${dd(uc.to)})</span></div>
+      <div class="stat"><b>${gbp(uc.totalOut)}</b><span>Expenses paid</span></div>
+      <div class="stat uc-result"><b class="${uc.profit < 0 ? 'neg' : ''}">${gbp(uc.profit)}</b><span>${uc.profit < 0 ? 'Loss' : 'Profit'} for this period</span></div>
+    </div>
+    <details><summary>Show what's counted</summary><div class="stack" style="margin-top:10px">
+      <h4 style="margin:0">Money in</h4>${ucRows(uc.moneyIn, 'No money recorded as received in these dates.')}
+      ${uc.moneyIn.some(r => r.guessed) ? '<p class="small muted">* No deposit date was entered, so the date the order was added is used. Add the real date in the order if it was different.</p>' : ''}
+      <h4 style="margin:0">Expenses paid</h4>${ucRows(uc.moneyOut, 'No expenses in these dates.', true)}
+    </div></details>
+    ${uc.totalOwed ? `<p class="notice"><span><b>${gbp(uc.totalOwed)} still owed</b> on orders in these dates (${uc.owed.map(r => esc(r.what)).join(', ')}). It's not counted until it's paid. If it has been paid, tick "balance paid" in the order with the date it came in.</span></p>` : ''}
+    ${uc.estCosts ? `<p class="small muted">Not counted: ${gbp(uc.estCosts)} of costs typed into orders. Universal Credit uses what you actually paid, so log real receipts as expenses instead.</p>` : ''}
+  </section>`;
   const srcRow = (n, inc, exp) => `<tr><td>${esc(n)}</td><td>${gbp(inc)}</td><td>${gbp(exp)}</td><td class="${inc - exp < 0 ? 'neg' : ''}">${gbp(inc - exp)}</td></tr>`;
-  app.innerHTML = `${dataNote()}<div class="row between"><h2>${esc(name)}</h2><div class="row"><select id="yr" aria-label="Year" style="width:auto">${yrs.map(y => `<option ${y === S.year ? 'selected' : ''}>${y}</option>`).join('')}</select>${S.downloads ? '<button id="csvO">Save orders (CSV)</button><button id="csvE">Save earnings and expenses (CSV)</button>' : ''}</div></div>
+  app.innerHTML = `${dataNote()}${ucHtml}<div class="row between"><h2>${esc(name)}</h2><div class="row"><select id="yr" aria-label="Year" style="width:auto">${yrs.map(y => `<option ${y === S.year ? 'selected' : ''}>${y}</option>`).join('')}</select>${S.downloads ? '<button id="csvO">Save orders (CSV)</button><button id="csvE">Save earnings and expenses (CSV)</button>' : ''}</div></div>
   <div class="stats">
     <div class="stat"><b>${gbp(m.income)}</b><span>Income: ${gbp(m.orderIncome)} customer orders, ${gbp(m.otherIncome)} other earnings</span></div>
     <div class="stat"><b>${gbp(m.expenses)}</b><span>Expenses</span></div>
@@ -454,6 +474,10 @@ function viewMoney() {
   <section class="stack"><h3>Business expenses in ${esc(name)}</h3>${ex.length ? `<div class="scroll"><table><thead><tr><th>What</th><th>Type</th><th>Date</th><th>Amount</th><th></th></tr></thead><tbody>${ex.map(e => `<tr><td style="white-space:normal">${esc(e.item)}${e.example ? ' <span class="pill">Example</span>' : ''}</td><td>${esc(e.category)}</td><td>${fmt(e.date, {day: 'numeric', month: 'short'})}</td><td>${gbp(P(e.amount))}</td><td><button class="link" data-delex="${esc(e.id)}">Remove</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No business expenses this month.</div>'}</section>
   <section class="stack"><h3>Orders in ${esc(name)}</h3>${mo.length ? `<div class="scroll"><table><thead><tr><th>Customer</th><th>Event</th><th>Income</th><th>Expenses</th><th>Profit</th></tr></thead><tbody>${mo.map(o => { const s = sums(o); return `<tr class="pick" data-open="${esc(o.id)}" tabindex="0"><td>${esc(o.customerName)}</td><td>${fmt(o.eventDate, {day: 'numeric', month: 'short'})}</td><td>${gbp(s.income)}</td><td>${gbp(s.costs)}</td><td class="${s.profit < 0 ? 'neg' : ''}">${gbp(s.profit)}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">No orders with an event this month.</div>'}</section>`;
   app.querySelector('#yr').onchange = e => { S.year = e.target.value; S.ym = S.year + S.ym.slice(4); viewMoney(); };
+  const ucKeep = () => { const o = app.querySelector('.uc details')?.open; viewMoney(); if (o) app.querySelector('.uc details').open = true; };
+  app.querySelector('#ucPrev').onclick = () => { S.uc = ucShift(S.uc, -1); ucKeep(); };
+  app.querySelector('#ucNext').onclick = () => { S.uc = ucShift(S.uc, 1); ucKeep(); };
+  ['ucFrom', 'ucTo'].forEach(id => app.querySelector('#' + id).addEventListener('change', e => { const v = e.target.value; if (!v) return; S.uc = {...S.uc, [id === 'ucFrom' ? 'from' : 'to']: v}; ucKeep(); }));
   app.querySelector('#ef').addEventListener('submit', async ev => { ev.preventDefault();
     const q = id => app.querySelector('#' + id), err = q('exErr'), item = q('exItem').value.trim(), amount = q('exAmt').value, date = q('exDate').value;
     if (!item || !P(amount) || !date) { err.textContent = 'Add a date, what it was and the amount.'; err.hidden = false; return; }

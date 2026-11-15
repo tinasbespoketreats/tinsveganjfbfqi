@@ -147,3 +147,6 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:0}
   nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0}
   nav a{white-space:normal;text-align:center;font-size:13.5px;line-height:1.2;padding:8px 2px 9px;min-height:48px;display:flex;align-items:center;justify-content:center}
 }
+.uc .stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.uc .uc-result{grid-column:1/-1}
+.uc .total>div>span:first-child{text-align:left}
