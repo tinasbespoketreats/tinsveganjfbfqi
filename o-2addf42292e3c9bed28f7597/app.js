@@ -426,7 +426,7 @@ function viewMoney() {
   S.uc ||= ucDefault(today());
   const uc = ucPeriod(S.uc.from, S.uc.to, S.orders, S.expenses), dd = d => fmt(d, {day: 'numeric', month: 'short'});
   const ucRows = (list, empty, extra) => list.length ? `<div class="total">${list.map(r => `<div><span>${dd(r.date)}${r.guessed ? ' *' : ''} · ${esc(r.what)}${extra && r.where ? ` <span class="muted">(${esc(r.where)})</span>` : ''}</span><span>${gbp(r.amount)}</span></div>`).join('')}</div>` : `<div class="empty">${empty}</div>`;
-  const ucHtml = `<section class="card uc" aria-labelledby="ucH"><div class="row between"><h3 id="ucH" style="margin:0">Universal Credit period</h3>
+  const ucHtml = `<details class="card uc" id="ucBox"${S.ucOpen ? ' open' : ''}><summary><h3 id="ucH" style="display:inline;margin:0">My 15th to 14th view</h3> <span class="small muted">(${dd(uc.from)} – ${dd(uc.to)}: ${gbp(uc.totalIn)} in, ${gbp(uc.totalOut)} out)</span></summary><div class="stack" style="margin-top:10px"><div class="row between"><span class="small muted">Universal Credit period</span>
     <div class="row"><button id="ucPrev" type="button" aria-label="Previous period">‹ Earlier</button><button id="ucNext" type="button" aria-label="Next period">Later ›</button></div></div>
     <div class="row" style="align-items:end">${field('ucFrom', S.uc.from, 'From', 'date')}${field('ucTo', S.uc.to, 'To', 'date')}</div>
     <p class="small muted">Counts only money that actually came in and expenses you actually paid between these dates, the way Universal Credit does. Check it against your bank statement.</p>
@@ -443,15 +443,16 @@ function viewMoney() {
     </div></details>
     ${uc.totalOwed ? `<p class="notice"><span><b>${gbp(uc.totalOwed)} still owed</b> on orders in these dates (${uc.owed.map(r => esc(r.what)).join(', ')}). It's not counted until it's paid. If it has been paid, tick "balance paid" in the order with the date it came in.</span></p>` : ''}
     ${uc.estCosts ? `<p class="small muted">Not counted: ${gbp(uc.estCosts)} of costs typed into orders. Universal Credit uses what you actually paid, so log real receipts as expenses instead.</p>` : ''}
-  </section>`;
+  </div></details>`;
   const srcRow = (n, inc, exp) => `<tr><td>${esc(n)}</td><td>${gbp(inc)}</td><td>${gbp(exp)}</td><td class="${inc - exp < 0 ? 'neg' : ''}">${gbp(inc - exp)}</td></tr>`;
-  app.innerHTML = `${dataNote()}${ucHtml}<div class="row between"><h2>${esc(name)}</h2><div class="row"><select id="yr" aria-label="Year" style="width:auto">${yrs.map(y => `<option ${y === S.year ? 'selected' : ''}>${y}</option>`).join('')}</select>${S.downloads ? '<button id="csvO">Save orders (CSV)</button><button id="csvE">Save earnings and expenses (CSV)</button>' : ''}</div></div>
+  app.innerHTML = `${dataNote()}<div class="row between"><h2>${esc(name)}</h2><div class="row"><select id="yr" aria-label="Year" style="width:auto">${yrs.map(y => `<option ${y === S.year ? 'selected' : ''}>${y}</option>`).join('')}</select>${S.downloads ? '<button id="csvO">Save orders (CSV)</button><button id="csvE">Save earnings and expenses (CSV)</button>' : ''}</div></div>
   <div class="stats">
     <div class="stat"><b>${gbp(m.income)}</b><span>Income: ${gbp(m.orderIncome)} customer orders, ${gbp(m.otherIncome)} other earnings</span></div>
     <div class="stat"><b>${gbp(m.expenses)}</b><span>Expenses</span></div>
     <div class="stat"><b class="${m.profit < 0 ? 'neg' : ''}">${gbp(m.profit)}</b><span>Profit</span></div>
     <div class="stat"><b>${gbp(m.received)}</b><span>Money received this month</span></div>
   </div>
+  <p class="small"><a href="#ucBox" id="ucJump">See my 15th to 14th totals ↓</a></p>
   <p class="small muted">Orders count in the month of their event. Money received counts deposits and balances in the month they were paid, plus other earnings on the date you enter.</p>
   <section class="stack"><h3>Where your money came from in ${esc(name)}</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Income</th><th>Expenses</th><th>Profit</th></tr></thead><tbody>
   ${srcRow('Customer orders', m.orderIncome, m.orderCosts)}${Object.entries(m.sources).map(([n, v]) => srcRow(n, v.income, v.expenses)).join('')}${srcRow('Business expenses', 0, m.other)}
@@ -474,9 +475,11 @@ function viewMoney() {
     ${moneyInput('exAmt', '', 'Amount')}<button class="primary" type="submit">Add expense</button>
   </form><p class="err" id="exErr" role="alert" hidden></p></section>
   <section class="stack"><h3>Business expenses in ${esc(name)}</h3>${ex.length ? `<div class="scroll"><table><thead><tr><th>What</th><th>Type</th><th>Date</th><th>Amount</th><th></th></tr></thead><tbody>${ex.map(e => `<tr><td style="white-space:normal">${esc(e.item)}${e.example ? ' <span class="pill">Example</span>' : ''}</td><td>${esc(e.category)}</td><td>${fmt(e.date, {day: 'numeric', month: 'short'})}</td><td>${gbp(P(e.amount))}</td><td><button class="link" data-delex="${esc(e.id)}">Remove</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No business expenses this month.</div>'}</section>
-  <section class="stack"><h3>Orders in ${esc(name)}</h3>${mo.length ? `<div class="scroll"><table><thead><tr><th>Customer</th><th>Event</th><th>Income</th><th>Expenses</th><th>Profit</th></tr></thead><tbody>${mo.map(o => { const s = sums(o); return `<tr class="pick" data-open="${esc(o.id)}" tabindex="0"><td>${esc(o.customerName)}</td><td>${fmt(o.eventDate, {day: 'numeric', month: 'short'})}</td><td>${gbp(s.income)}</td><td>${gbp(s.costs)}</td><td class="${s.profit < 0 ? 'neg' : ''}">${gbp(s.profit)}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">No orders with an event this month.</div>'}</section>`;
+  <section class="stack"><h3>Orders in ${esc(name)}</h3>${mo.length ? `<div class="scroll"><table><thead><tr><th>Customer</th><th>Event</th><th>Income</th><th>Expenses</th><th>Profit</th></tr></thead><tbody>${mo.map(o => { const s = sums(o); return `<tr class="pick" data-open="${esc(o.id)}" tabindex="0"><td>${esc(o.customerName)}</td><td>${fmt(o.eventDate, {day: 'numeric', month: 'short'})}</td><td>${gbp(s.income)}</td><td>${gbp(s.costs)}</td><td class="${s.profit < 0 ? 'neg' : ''}">${gbp(s.profit)}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">No orders with an event this month.</div>'}</section>${ucHtml}`;
   app.querySelector('#yr').onchange = e => { S.year = e.target.value; S.ym = S.year + S.ym.slice(4); viewMoney(); };
-  const ucKeep = () => { const o = app.querySelector('.uc details')?.open; viewMoney(); if (o) app.querySelector('.uc details').open = true; };
+  const ucKeep = () => { const o = app.querySelector('.uc details')?.open; S.ucOpen = true; viewMoney(); if (o) app.querySelector('.uc details').open = true; };
+  app.querySelector('#ucBox').addEventListener('toggle', e => { S.ucOpen = e.target.open; });
+  app.querySelector('#ucJump').onclick = ev => { ev.preventDefault(); const b = app.querySelector('#ucBox'); b.open = true; S.ucOpen = true; b.scrollIntoView({behavior: 'smooth', block: 'start'}); };
   app.querySelector('#ucPrev').onclick = () => { S.uc = ucShift(S.uc, -1); ucKeep(); };
   app.querySelector('#ucNext').onclick = () => { S.uc = ucShift(S.uc, 1); ucKeep(); };
   ['ucFrom', 'ucTo'].forEach(id => app.querySelector('#' + id).addEventListener('change', e => { const v = e.target.value; if (!v) return; S.uc = {...S.uc, [id === 'ucFrom' ? 'from' : 'to']: v}; ucKeep(); }));

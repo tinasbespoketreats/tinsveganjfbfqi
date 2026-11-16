@@ -150,3 +150,4 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:0}
 .uc .stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 .uc .uc-result{grid-column:1/-1}
 .uc .total>div>span:first-child{text-align:left}
+.uc>summary{cursor:pointer;list-style-position:outside;padding:2px 0}
