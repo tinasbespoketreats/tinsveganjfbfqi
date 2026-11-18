@@ -56,7 +56,7 @@ button:disabled{opacity:.55;cursor:default}
 .job{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;width:100%;text-align:left;background:none;border:0;padding:5px 0;font-weight:400;border-radius:4px}
 .job strong{font-weight:700}
 .pill{font-size:12.5px;font-weight:800;padding:2px 9px;border-radius:99px;background:var(--sunk);color:var(--fg);white-space:nowrap}
-.pill.make{background:var(--accent-soft);color:var(--accent)} .pill.hand{background:var(--info-soft);color:var(--info)} .pill.event{background:var(--good-soft);color:var(--good)} .pill.pay{background:var(--warn-soft);color:var(--warn)} .pill.over{background:var(--bad-soft);color:var(--bad)} .pill.done{background:var(--good-soft);color:var(--good)}
+.pill.make{background:var(--accent-soft);color:var(--accent)} .pill.post{background:var(--warn-soft);color:var(--warn)} .pill.hand{background:var(--info-soft);color:var(--info)} .pill.event{background:var(--good-soft);color:var(--good)} .pill.pay{background:var(--warn-soft);color:var(--warn)} .pill.over{background:var(--bad-soft);color:var(--bad)} .pill.done{background:var(--good-soft);color:var(--good)}
 .allergy{color:var(--bad);font-weight:700}
 .docket{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:left;font-weight:400;width:100%}
 .docket .sum{text-align:right;white-space:nowrap}

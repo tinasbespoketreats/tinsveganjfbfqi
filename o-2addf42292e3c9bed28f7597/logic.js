@@ -21,6 +21,7 @@ function jobs(o) {
   if (o.status === 'Cancelled') return out;
   if (o.status !== 'Completed') {
     if (o.makeDate) out.push({date: o.makeDate, kind: 'make', label: 'Make', o});
+    if (o.postDate) out.push({date: o.postDate, kind: 'post', label: 'Post', o});
     if (h.date) out.push({date: h.date, time: h.time, kind: 'hand', label: h.label, o});
     if (o.eventDate && o.eventDate !== h.date) out.push({date: o.eventDate, kind: 'event', label: 'Event', o});
   }
@@ -89,6 +90,30 @@ function calUrl(title, details, date, time) {
   else dates = c(date) + '/' + c(addDays(date, 1));
   return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(title) + '&dates=' + dates + '&ctz=Europe/London&details=' + encodeURIComponent(details);
 }
+/* ---------- Google Calendar: the entries each order puts in Tina's calendar ---------- */
+// Reminders pop up at 8am five days before and at 8am on the day (or when it starts, if earlier).
+const CAL = {remindAt: 8 * 60, daysBefore: 5, make: {time: '09:00', mins: 60}, post: {time: '10:00', mins: 30}, hand: {time: '10:00', mins: 60}};
+function calReminders(time) {
+  const [h, m] = time.split(':').map(Number), start = h * 60 + m;
+  return [CAL.daysBefore * 1440 + start - CAL.remindAt, Math.max(0, start - CAL.remindAt)];
+}
+function calEvents(o) {
+  if (!o || o.example || o.status === 'Cancelled') return [];
+  const name = o.customerName || 'Customer', h = handover(o);
+  const items = [o.orderType === 'sample' ? 'Sample box (' + (o.biscuitQty || PRICING.sample.qty) + ' biscuits)' : [o.biscuits && (o.biscuitQty || '?') + ' biscuits', o.cupcakes && (o.cupcakeQty || '?') + ' cupcakes'].filter(Boolean).join(' + ')].filter(Boolean).join('');
+  const note = [items, o.eventDate && 'Event: ' + o.eventDate.split('-').reverse().join('/'), o.details, o.colourScheme && 'Colours: ' + o.colourScheme, o.allergies && 'ALLERGIES: ' + o.allergies, o.dietary && 'Dietary: ' + o.dietary, o.phone && 'Phone: ' + o.phone].filter(Boolean).join('\n');
+  const out = [], ev = (key, title, date, time, mins, extra = '', location = '') => out.push({key, title, date, time, mins, details: note + extra, location, reminders: calReminders(time)});
+  if (o.makeDate) ev('make', 'Make: ' + name + (items ? ' (' + items + ')' : ''), o.makeDate, CAL.make.time, CAL.make.mins);
+  if (o.postDate) ev('post', 'Post: ' + name + (items ? ' (' + items + ')' : ''), o.postDate, CAL.post.time, CAL.post.mins, o.deliveryAddress ? '\nAddress: ' + o.deliveryAddress : '');
+  if (h.date) {
+    const addr = o.fulfilment === 'delivery' ? [o.deliveryLocation, o.deliveryAddress].filter(Boolean).join(', ') : '';
+    ev('hand', (o.fulfilment === 'delivery' ? 'Deliver: ' : o.fulfilment === 'collection' ? 'Collection: ' : 'Hand over: ') + name, h.date, h.time || CAL.hand.time, CAL.hand.mins,
+      (h.time ? '' : '\n(No time set on the order.)') + (addr ? '\nAddress: ' + addr : ''), addr);
+  }
+  return out;
+}
+function calSig(events) { let x = 5381; const t = JSON.stringify(events); for (let i = 0; i < t.length; i++) x = (x * 33 ^ t.charCodeAt(i)) >>> 0; return events.length ? 'v1-' + x.toString(36) : ''; }
+const calOrder = o => { const events = calEvents(o); return {id: o.id, sig: calSig(events), events}; };
 /* ---------- biscuit pricing (matches the Biscuit Quote Calculator sheet) ---------- */
 // Money in pence. Costs are [pack price, biscuits one pack does].
 const PRICING = {
@@ -163,4 +188,4 @@ function quote(q, cfg = PRICING) {
     verdict: !n ? 'empty' : n < cfg.minOrder ? 'min' : perHour >= cfg.hourly ? 'good' : 'low'};
 }
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-if (typeof module !== 'undefined') module.exports = {SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays, PRICING, quote, fuelPence, roundTripMiles, ucDefault, ucShift, ucPeriod};
+if (typeof module !== 'undefined') module.exports = {CAL, calEvents, calReminders, calSig, calOrder, SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays, PRICING, quote, fuelPence, roundTripMiles, ucDefault, ucShift, ucPeriod};

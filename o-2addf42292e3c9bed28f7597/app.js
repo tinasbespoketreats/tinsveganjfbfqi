@@ -6,6 +6,8 @@ const STATUSES = ['Confirmed', 'In progress', 'Ready', 'Completed', 'Cancelled']
 const CATS = ['Ingredients', 'Packaging', 'Equipment', 'Delivery and travel', 'Marketing', 'Fees', 'Other'];
 const UC_TYPE = {Ingredients: 'Goods and materials', Packaging: 'Goods and materials', Equipment: 'Office and equipment costs', Marketing: 'Marketing and advertising'};
 const DRAFT = 'tina-order-draft';
+const CAL_ID = '00000000-0000-4000-8000-0000000ca1e0', CAL_LAST = 'tina-cal-synced';
+const CAL_SCRIPT = "// Tina's Order Book -> Google Calendar. Paste all of this into a new Apps Script project.\nconst SECRET = '__SECRET__';\nconst CAL_NAME = \"Tina's Orders\";\nconst TZ = 'Europe/London';\n\nfunction doGet() { return out_({ok: true, name: CAL_NAME}); }\n\nfunction doPost(e) {\n  let body;\n  try { body = JSON.parse(e.postData.contents); } catch (x) { return out_({ok: false, error: 'bad request'}); }\n  if (body.secret !== SECRET) return out_({ok: false, error: 'wrong secret'});\n  const lock = LockService.getScriptLock();\n  lock.waitLock(60000);\n  try {\n    const cal = calendar_(), byOrder = {};\n    cal.getEvents(new Date(2020, 0, 1), new Date(2040, 0, 1)).forEach(function (ev) {\n      const id = ev.getTag('tbOrder');\n      if (id) (byOrder[id] = byOrder[id] || []).push(ev);\n    });\n    const seen = {};\n    let changed = 0;\n    (body.orders || []).forEach(function (o) {\n      seen[o.id] = true;\n      const old = byOrder[o.id] || [], events = o.events || [];\n      if (old.length === events.length && old.every(function (ev) { return ev.getTag('tbSig') === o.sig; })) return;\n      old.forEach(function (ev) { ev.deleteEvent(); });\n      events.forEach(function (x) {\n        const start = Utilities.parseDate(x.date + ' ' + x.time, TZ, 'yyyy-MM-dd HH:mm');\n        const ev = cal.createEvent(x.title, start, new Date(start.getTime() + x.mins * 60000), {description: x.details || '', location: x.location || ''});\n        ev.setTag('tbOrder', o.id); ev.setTag('tbSig', o.sig);\n        ev.removeAllReminders();\n        (x.reminders || []).forEach(function (m) { ev.addPopupReminder(m); });\n      });\n      changed++;\n    });\n    if (body.full) Object.keys(byOrder).forEach(function (id) {\n      if (!seen[id]) { byOrder[id].forEach(function (ev) { ev.deleteEvent(); }); changed++; }\n    });\n    return out_({ok: true, changed: changed});\n  } catch (x) {\n    return out_({ok: false, error: String(x && x.message || x)});\n  } finally {\n    lock.releaseLock();\n  }\n}\n\nfunction calendar_() {\n  const found = CalendarApp.getCalendarsByName(CAL_NAME)[0];\n  return found || CalendarApp.createCalendar(CAL_NAME, {color: CalendarApp.Color.PINK, timeZone: TZ});\n}\n\n// Press Run on this once in the editor so Google asks for permission to use your calendar.\nfunction setUp() { calendar_(); }\n\nfunction out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }\n";
 const today = () => iso(new Date());
 S.ym = today().slice(0, 7); S.year = today().slice(0, 4);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -28,7 +30,8 @@ function render() {
   const r = route();
   document.querySelectorAll('nav a').forEach(a => a.dataset.r === (r.startsWith('order-') ? 'orders' : r) ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   if (r === 'new-order' || r === 'edit' || r === 'price') return; // forms are drawn once by go()
-  if (r === 'orders') viewOrders(); else if (r === 'money') viewMoney(); else if (r === 'order') viewOrder(); else viewHome();
+  if (r === 'calendar' && app.querySelector('#calPage')) return;
+  if (r === 'orders') viewOrders(); else if (r === 'calendar') viewCalendar(); else if (r === 'money') viewMoney(); else if (r === 'order') viewOrder(); else viewHome();
 }
 
 const MAX_IMAGES = 10, signedCache = {};
@@ -59,7 +62,7 @@ function viewHome() {
   const noMake = S.orders.filter(o => !['Cancelled', 'Completed'].includes(o.status) && !o.makeDate);
   const days = {}; soon.forEach(j => (days[j.date] ||= []).push(j));
   const job = j => `<button class="job" data-open="${esc(j.o.id)}"><span class="pill ${j.kind}">${esc(j.label)}</span><strong>${esc(j.o.customerName)}</strong><span class="muted">${esc(what(j.o))}${j.time ? ' at ' + esc(j.time) : ''}</span>${j.o.example ? '<span class="pill">Example</span>' : ''}${j.o.allergies ? `<span class="allergy small">Allergy: ${esc(j.o.allergies)}</span>` : ''}</button>`;
-  app.innerHTML = `${dataNote()}
+  app.innerHTML = `${dataNote()}${calNote()}
   <div class="stats">
     <div class="stat"><b>${all.filter(j => j.date >= t && j.date <= week && j.kind !== 'event').length}</b><span>Jobs in the next 7 days</span></div>
     <div class="stat"><b>${gbp(owed)}</b><span>Still to be paid to you</span></div>
@@ -88,7 +91,7 @@ function viewOrder() {
   const o = S.orders.find(x => x.id === S.open);
   if (!o) { location.hash = '#orders'; return; }
   const s = sums(o), h = handover(o), note = [what(o), o.details, o.colourScheme && 'Colours: ' + o.colourScheme, o.allergies && 'ALLERGIES: ' + o.allergies, o.phone && 'Phone: ' + o.phone].filter(Boolean).join('\n');
-  const cal = [o.makeDate && ['Make day', calUrl('Make: ' + o.customerName + ' (' + what(o) + ')', note, o.makeDate)], h.date && [h.label, calUrl(h.label + ': ' + o.customerName, note + (o.deliveryAddress ? '\nAddress: ' + o.deliveryAddress : ''), h.date, h.time)], s.outstanding && dueDate(o) && ['Payment due', calUrl('Payment due ' + gbp(s.outstanding) + ': ' + o.customerName, note, dueDate(o))]].filter(Boolean);
+  const cal = [o.makeDate && ['Make day', calUrl('Make: ' + o.customerName + ' (' + what(o) + ')', note, o.makeDate)], o.postDate && ['Post day', calUrl('Post: ' + o.customerName + ' (' + what(o) + ')', note, o.postDate)], h.date && [h.label, calUrl(h.label + ': ' + o.customerName, note + (o.deliveryAddress ? '\nAddress: ' + o.deliveryAddress : ''), h.date, h.time)], s.outstanding && dueDate(o) && ['Payment due', calUrl('Payment due ' + gbp(s.outstanding) + ': ' + o.customerName, note, dueDate(o))]].filter(Boolean);
   const item = (k, v) => v ? `<div><h3>${k}</h3>${esc(v)}</div>` : '';
   app.innerHTML = `<div class="row between"><div><h2>${esc(o.customerName)}</h2><span class="muted">${esc(what(o))} for ${fmt(o.eventDate) || 'date not set'}</span></div>
   <div class="row"><label class="lab" for="st">Status</label><select id="st" style="width:auto">${STATUSES.map(x => `<option ${x === o.status ? 'selected' : ''}>${x}</option>`).join('')}</select></div></div>
@@ -97,9 +100,10 @@ function viewOrder() {
   ${o.allergies ? `<div class="notice bad"><span class="allergy">Allergies: ${esc(o.allergies)}</span></div>` : ''}
   <div class="total"><div><span>Treats</span><span>${gbp(s.treats)}</span></div>${o.fulfilment === 'delivery' ? `<div><span>Delivery</span><span>${gbp(s.delivery)}</span></div>` : ''}<div class="big"><span>Order income</span><span>${gbp(s.income)}</span></div><div><span>Expenses on this order</span><span>${gbp(s.costs)}</span></div><div><span>Profit</span><span class="${s.profit < 0 ? 'neg' : ''}">${gbp(s.profit)}</span></div><div><span>Deposit received</span><span>${gbp(s.deposit)}</span></div><div class="big"><span>Payment outstanding</span><span>${gbp(s.outstanding)}</span></div></div>
   <div class="row">${s.outstanding ? `<button class="primary" id="paid">Mark balance as paid</button>` : o.balancePaid ? '<button id="unpaid">Undo balance paid</button>' : ''}<button id="edit">Edit order</button></div>
-  <section class="card"><h3>Add to Google Calendar</h3><div class="row">${cal.length ? cal.map(([l, u]) => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">${esc(l)}</a>`).join('') : '<span class="muted">Add dates to the order to use this.</span>'}</div></section>
+  ${S.cal ? `<section class="card"><h3>Google Calendar</h3><span>${calEvents(o).length ? `This order's ${calEvents(o).map(x => ({make: 'make day', post: 'post day', hand: h.label === 'Deliver' ? 'delivery' : h.label.toLowerCase()})[x.key]).join(', ').replace(/, ([^,]*)$/, ' and $1')} ${calEvents(o).length > 1 ? 'are' : 'is'} in your Google Calendar, with reminders 5 days before and on the day. Changes you make here update it by themselves.` : o.example ? 'Example orders are not put in your calendar.' : o.status === 'Cancelled' ? 'Cancelled, so it has been taken out of your calendar.' : 'Add a make, post, delivery or collection date and it will go in your calendar.'}</span></section>`
+  : `<section class="card"><h3>Add to Google Calendar</h3><div class="row">${cal.length ? cal.map(([l, u]) => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">${esc(l)}</a>`).join('') : '<span class="muted">Add dates to the order to use this.</span>'}</div><a href="#calendar" class="small">Put every order in your calendar automatically, with reminders</a></section>`}
   <section class="card detail">
-    ${item('Email', o.email)}${item('Instagram', o.instagram)}${item('Phone', o.phone)}${item('Make on', fmt(o.makeDate))}${item(h.label, [fmt(h.date), h.time].filter(Boolean).join(' at '))}
+    ${item('Email', o.email)}${item('Instagram', o.instagram)}${item('Phone', o.phone)}${item('Make on', fmt(o.makeDate))}${item('Post on', fmt(o.postDate))}${item(h.label, [fmt(h.date), h.time].filter(Boolean).join(' at '))}
     ${item('Delivery address', o.fulfilment === 'delivery' && o.deliveryAddress)}${item('Delivery location', o.fulfilment === 'delivery' && o.deliveryLocation)}
     ${item('Dietary preference', o.dietary)}${item('Colour scheme', o.colourScheme)}${item('Packaging', [o.cellophane ? 'Wrapped in cellophane' : 'No cellophane', o.bow === 'with' ? 'with a ' + (o.bowColour || '') + ' bow' : o.bow === 'without' ? 'without a bow' : ''].filter(Boolean).join(', '))}
     ${item('Deposit paid on', s.deposit ? fmt(o.depositDate) : '')}${item('Paid in full on', o.balancePaid ? fmt(o.balancePaidDate) : '')}${item('Balance due on', s.outstanding ? fmt(dueDate(o)) : '')}
@@ -111,14 +115,14 @@ function viewOrder() {
   const box = app.querySelector('#orderImgs');
   if (box) { const shown = o.images.map(() => { const w = document.createElement('div'); w.className = 'thumb'; const i = new Image(); i.alt = 'Order image'; i.onclick = () => i.src && lightbox(i.src); w.append(i); box.append(w); return i; });
     signedUrls(o.images).then(m => o.images.forEach((p, n) => { if (m[p]) shown[n].src = m[p]; })).catch(() => toast("Images couldn't load. Check your connection.")); }
-  const upd = async (patch, msg) => { try { await S.db.doc('orders/' + o.id).update({...patch, updatedAt: new Date().toISOString()}); toast(msg); } catch (e) { toast("That didn't save. Check your connection and try again."); } };
+  const upd = async (patch, msg) => { try { await S.db.doc('orders/' + o.id).update({...patch, updatedAt: new Date().toISOString()}); toast(msg); calSync([S.orders.find(x => x.id === o.id)]); } catch (e) { toast("That didn't save. Check your connection and try again."); } };
   app.querySelector('#st').onchange = e => upd({status: e.target.value}, 'Status changed to ' + e.target.value);
   app.querySelector('#paid')?.addEventListener('click', () => upd({balancePaid: true, balancePaidDate: today()}, 'Balance marked as paid'));
   app.querySelector('#unpaid')?.addEventListener('click', () => upd({balancePaid: false, balancePaidDate: ''}, 'Balance marked as unpaid'));
   app.querySelector('#edit').onclick = () => { location.hash = '#edit'; };
   app.querySelector('#del').onclick = () => { document.getElementById('delrow').innerHTML = `<span>Delete this order for good?</span><button class="danger" id="delyes">Yes, delete it</button><button id="delno">Keep it</button>`;
     document.getElementById('delno').onclick = viewOrder;
-    document.getElementById('delyes').onclick = async () => { try { await S.db.doc('orders/' + o.id).delete(); TB.removeFiles(o.images || []).catch(() => {}); location.hash = '#orders'; toast('Order deleted'); } catch (e) { toast("That didn't delete. Try again."); } }; };
+    document.getElementById('delyes').onclick = async () => { try { await S.db.doc('orders/' + o.id).delete(); TB.removeFiles(o.images || []).catch(() => {}); calSync([{id: o.id, status: 'Cancelled'}]); location.hash = '#orders'; toast('Order deleted'); } catch (e) { toast("That didn't delete. Try again."); } }; };
 }
 
 /* price an order */
@@ -264,7 +268,7 @@ function viewForm(o) {
     <div class="full">${field('customerName', o.customerName, 'Name')}<div id="nameHits" class="suggest" hidden></div></div>${field('email', o.email, 'Email', 'email')}${field('instagram', o.instagram, 'Instagram', 'text', 'Their username, e.g. @name')}${field('phone', o.phone, 'Phone number', 'tel')}
   </fieldset>
   <fieldset><legend>Dates</legend>
-    ${field('eventDate', o.eventDate, 'Date of event', 'date')}${field('makeDate', o.makeDate, 'Date I need to make these', 'date')}
+    ${field('eventDate', o.eventDate, 'Date of event', 'date')}${field('makeDate', o.makeDate, 'Date I need to make these', 'date')}${field('postDate', o.postDate, 'Date I need to post these', 'date', 'Only if it is going in the post')}
   </fieldset>
   <fieldset><legend>The order</legend>
     <div class="f"><label class="tick"><input type="checkbox" id="biscuits" name="biscuits" ${o.biscuits ? 'checked' : ''}>Biscuits</label><label class="lab" for="biscuitQty">Quantity</label><input type="number" min="0" step="1" inputmode="numeric" id="biscuitQty" name="biscuitQty" value="${esc(o.biscuitQty)}"></div>
@@ -411,7 +415,7 @@ function viewForm(o) {
       await ref.set({...keep, ...d, images: [...imgs.kept, ...imgs.pending.map(i => i.path)], customerName: d.customerName.trim(), status: o.status || 'Confirmed', createdAt: o.createdAt || now, updatedAt: now});
       try { localStorage.removeItem(DRAFT); } catch (x) {}
       TB.removeFiles(imgs.removed).catch(() => {});
-      S.dirty = false; S.open = ref.id; toast('Order saved'); location.hash = '#order';
+      S.dirty = false; S.open = ref.id; toast('Order saved'); location.hash = '#order'; calSync([S.orders.find(x => x.id === ref.id)]);
     } catch (x) { btn.disabled = false; fail("That didn't save. Your entries are still here, so check your connection and press Save again."); }
   });
 }
@@ -496,8 +500,75 @@ function viewMoney() {
     try { S.ym = date.slice(0, 7); S.year = date.slice(0, 4); await S.db.collection('expenses').add({date, item, amount, source: q('oeSrc').value, entryType: q('oeType').value, createdAt: new Date().toISOString()}); toast('Entry added'); }
     catch (x) { err.textContent = "That didn't save. Check your connection and try again."; err.hidden = false; } });
   const csv = async (name, head, rows) => { try { await S.downloads.save({filename: name, data: [head, ...rows].map(r => r.map(csvCell).join(',')).join('\n')}); toast('File saved'); } catch (e) { if (e?.code !== 'declined') toast("That file couldn't be saved here."); } };
-  app.querySelector('#csvO')?.addEventListener('click', () => csv('tinas-orders.csv', ['Event date', 'Customer', 'Email', 'Instagram', 'Phone', 'Status', 'Biscuits', 'Cupcakes', 'Details', 'Colours', 'Allergies', 'Dietary preference', 'Make date', 'Delivery or collection', 'Income', 'Expenses', 'Profit', 'Deposit', 'Outstanding'], S.orders.map(o => { const s = sums(o); return [o.eventDate, o.customerName, o.email, o.instagram, o.phone, o.status, o.biscuits ? o.biscuitQty : '', o.cupcakes ? o.cupcakeQty : '', o.details, o.colourScheme, o.allergies, o.dietary, o.makeDate, o.fulfilment, s.income / 100, s.costs / 100, s.profit / 100, s.deposit / 100, s.outstanding / 100]; })));
+  app.querySelector('#csvO')?.addEventListener('click', () => csv('tinas-orders.csv', ['Event date', 'Customer', 'Email', 'Instagram', 'Phone', 'Status', 'Biscuits', 'Cupcakes', 'Details', 'Colours', 'Allergies', 'Dietary preference', 'Make date', 'Post date', 'Delivery or collection', 'Income', 'Expenses', 'Profit', 'Deposit', 'Outstanding'], S.orders.map(o => { const s = sums(o); return [o.eventDate, o.customerName, o.email, o.instagram, o.phone, o.status, o.biscuits ? o.biscuitQty : '', o.cupcakes ? o.cupcakeQty : '', o.details, o.colourScheme, o.allergies, o.dietary, o.makeDate, o.postDate, o.fulfilment, s.income / 100, s.costs / 100, s.profit / 100, s.deposit / 100, s.outstanding / 100]; })));
   app.querySelector('#csvE')?.addEventListener('click', () => csv('tinas-earnings-and-expenses.csv', ['Date', 'What', 'Type', 'Where from', 'Income or expense', 'Amount'], S.expenses.map(e => [e.date, e.item, e.category, e.source || 'Business', e.entryType === 'income' ? 'Income' : 'Expense', e.amount])));
+}
+
+/* Google Calendar: every order's make, post, delivery and collection days go into Tina's calendar by themselves */
+async function calPost(cfg, body) {
+  const r = await fetch(cfg.url, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({secret: cfg.secret, ...body}), redirect: 'follow'});
+  const d = await r.json().catch(() => null);
+  if (!r.ok || !d) throw new Error('No answer from Google');
+  if (!d.ok) throw new Error(d.error || 'Google said no');
+  return d;
+}
+const calLastOk = v => { try { v === undefined ? null : v ? localStorage.setItem(CAL_LAST, v) : localStorage.removeItem(CAL_LAST); return localStorage.getItem(CAL_LAST); } catch (e) { return null; } };
+async function calSync(orders) {
+  if (!S.cal) return;
+  try { await calPost(S.cal, {orders: orders.filter(Boolean).map(calOrder)}); }
+  catch (e) { calLastOk(''); toast("Saved, but your Google Calendar didn't update. It will try again next time you open the order book."); }
+}
+async function calAll(quiet) {
+  if (!S.cal || S.failed) return false;
+  try { const d = await calPost(S.cal, {full: true, orders: S.orders.map(calOrder)}); calLastOk(String(Date.now())); return d; }
+  catch (e) { if (!quiet) throw e; return false; }
+}
+function calCatchUp() { const last = +calLastOk() || 0; if (S.cal && Date.now() - last > 6 * 3600000) calAll(true); }
+function calNote() {
+  if (S.cal || !S.db || S.failed) return '';
+  return `<div class="notice"><span><b>Put your orders in Google Calendar automatically.</b> Make, post, delivery and collection days, with reminders 5 days before and on the day.</span><a class="btn" href="#calendar">Set it up</a></div>`;
+}
+function newSecret() { const a = new Uint8Array(18); crypto.getRandomValues(a); return Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); }
+function viewCalendar() {
+  S.calSecret ||= (S.cal && S.cal.secret) || newSecret();
+  const code = CAL_SCRIPT.replace('__SECRET__', S.calSecret), on = !!S.cal;
+  app.innerHTML = `<div id="calPage" class="stack">${dataNote().includes('bad') ? dataNote() : ''}<h2>Google Calendar</h2>
+  ${on ? `<div class="notice"><span><b>Connected.</b> Every order goes into the <b>Tina's Orders</b> calendar in your Google Calendar by itself: make day, post day, and delivery or collection day and time. Each one pops up a reminder at 8am five days before and at 8am on the day. When you change or cancel an order, the calendar changes too.</span></div>
+  <div class="row"><button class="primary" id="calNow">Update my calendar now</button></div><p class="small muted" id="calMsg" role="status"></p>
+  <details class="card"><summary>Change the connection</summary><div class="stack" style="margin-top:10px">` : `<p>Do this once, on a computer if you can. It takes about 5 minutes. After that, every order goes into your Google Calendar by itself, with reminders 5 days before and on the day.</p>`}
+  <section class="card"><h3>1. Copy your calendar code</h3><p class="small muted">It has your own secret key in it, so keep it to yourself.</p>
+    <textarea id="calCode" readonly style="font-family:monospace;font-size:12px;min-height:120px">${esc(code)}</textarea>
+    <div class="row"><button id="calCopy" type="button">Copy the code</button></div></section>
+  <section class="card"><h3>2. Put it in Google</h3><ol style="margin:0;padding-left:20px;display:grid;gap:6px">
+    <li>Open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a>, signed in to the Google account whose calendar you use. A new project opens.</li>
+    <li>Delete what's in the box, paste the code, then press the save icon.</li>
+    <li>At the top, pick <b>setUp</b> and press <b>Run</b>. Google asks for permission: choose your account, then <b>Advanced</b>, then <b>Go to … (unsafe)</b>, then <b>Allow</b>. This is your own code, so that's fine.</li>
+    <li>Press <b>Deploy</b>, then <b>New deployment</b>. Press the cog and choose <b>Web app</b>. Set <b>Execute as</b> to <b>Me</b> and <b>Who has access</b> to <b>Anyone</b>. Press <b>Deploy</b>.</li>
+    <li>Copy the <b>Web app URL</b> it shows you. It ends in <b>/exec</b>.</li></ol></section>
+  <section class="card"><h3>3. Paste the link here</h3>
+    <div class="f"><label for="calUrl">Web app URL</label><input type="text" id="calUrl" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.cal && S.cal.secret === S.calSecret ? S.cal.url : '')}"></div>
+    <p class="err" id="calErr" role="alert" hidden></p>
+    <div class="row"><button class="primary" id="calSave" type="button">Connect and add all my orders</button></div></section>
+  ${on ? '<div class="row"><button class="danger" id="calOff" type="button">Stop putting orders in my calendar</button></div></div></details>' : ''}</div>`;
+  const q = id => app.querySelector('#' + id);
+  q('calCopy').onclick = async () => { try { await navigator.clipboard.writeText(code); toast('Code copied'); } catch (e) { q('calCode').select(); toast('Press and hold to copy'); } };
+  q('calNow')?.addEventListener('click', async e => { e.target.disabled = true; q('calMsg').textContent = 'Updating…';
+    try { await calAll(false); q('calMsg').textContent = 'Your calendar is up to date.'; } catch (x) { q('calMsg').textContent = "That didn't work: " + x.message + '. Check your connection and try again.'; } e.target.disabled = false; });
+  q('calOff')?.addEventListener('click', async () => { try { await TB.del('expenses', CAL_ID); S.calSecret = null; await load(); toast('Orders will no longer go in your calendar'); viewCalendar(); } catch (e) { toast("That didn't work. Try again."); } });
+  q('calSave').onclick = async e => {
+    const err = q('calErr'), url = q('calUrl').value.trim(); err.hidden = true;
+    const bad = m => { err.textContent = m; err.hidden = false; e.target.disabled = false; };
+    if (!/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(url)) return bad('Paste the Web app URL from step 2. It starts with https://script.google.com and ends with /exec.');
+    e.target.disabled = true; e.target.textContent = 'Connecting…';
+    const cfg = {url, secret: S.calSecret};
+    try { await calPost(cfg, {orders: []}); }
+    catch (x) { e.target.textContent = 'Connect and add all my orders'; return bad(x.message === 'wrong secret' ? "Google answered, but the code there isn't this one. Copy the code again (step 1), paste it over the old one, save, then Deploy → Manage deployments → edit → New version." : "Google didn't answer. Check the link, and that Who has access is set to Anyone."); }
+    try { await TB.put('expenses', CAL_ID, cfg); await load(); }
+    catch (x) { e.target.textContent = 'Connect and add all my orders'; return bad("Connected, but the setting didn't save. Check your connection and try again."); }
+    try { e.target.textContent = 'Adding your orders…'; await calAll(false); toast('Connected. Your orders are in Google Calendar.'); }
+    catch (x) { toast('Connected. Some orders will be added next time you open the order book.'); }
+    viewCalendar(); window.scrollTo(0, 0);
+  };
 }
 
 /* events */
@@ -516,6 +587,7 @@ function go() {
   const r = route();
   if (r === 'new-order') { let d = {}; try { d = JSON.parse(localStorage.getItem(DRAFT)) || {}; } catch (e) {} render(); viewForm(d); window.scrollTo(0, 0); return; }
   if (r === 'price') { render(); viewPrice(); window.scrollTo(0, 0); return; }
+  if (r === 'calendar') { render(); window.scrollTo(0, 0); return; }
   if (r === 'edit') { const o = S.orders.find(x => x.id === S.open); if (!o) { location.hash = '#orders'; return; } render(); viewForm(JSON.parse(JSON.stringify(o))); window.scrollTo(0, 0); return; }
   S.dirty = false; render(); window.scrollTo(0, 0);
 }
@@ -538,15 +610,17 @@ S.downloads = {save: async ({filename, data}) => { const u = URL.createObjectURL
 async function load() {
   try {
     const [o, e] = await Promise.all([TB.list('orders'), TB.list('expenses')]);
-    S.orders = o.map(r => ({...r.data, id: r.id})); S.expenses = e.map(r => ({...r.data, id: r.id})); S.failed = false;
+    const cfg = e.find(r => r.id === CAL_ID);
+    S.cal = cfg && cfg.data && cfg.data.url && cfg.data.secret ? cfg.data : null;
+    S.orders = o.map(r => ({...r.data, id: r.id})); S.expenses = e.filter(r => r.id !== CAL_ID).map(r => ({...r.data, id: r.id})); S.failed = false;
   } catch (x) {
     if (x.status === 401) { await TB.signOut(); S.orders = []; S.expenses = []; S.db = null; showShell(false); return; }
     S.failed = true;
   }
   render();
 }
-async function enter() { S.db = db; showShell(true); go(); await load(); }
-document.addEventListener('visibilitychange', () => { if (!document.hidden && S.db) load(); });
+async function enter() { S.db = db; showShell(true); go(); await load(); calCatchUp(); }
+document.addEventListener('visibilitychange', async () => { if (!document.hidden && S.db) { await load(); calCatchUp(); } });
 document.getElementById('out').onclick = async () => { await TB.signOut(); location.reload(); };
 document.getElementById('login').addEventListener('submit', async ev => {
   ev.preventDefault();
