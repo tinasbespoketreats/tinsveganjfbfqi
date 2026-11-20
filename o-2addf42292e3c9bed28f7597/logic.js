@@ -6,11 +6,16 @@ const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0
 const addDays = (s, n) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); };
 function handover(o) {
   return o.fulfilment === 'delivery' ? {date: o.deliveryDate || o.eventDate, time: o.deliveryTime || '', label: 'Deliver'}
+       : o.fulfilment === 'post' ? {date: o.postDate || '', time: o.postTime || '', label: 'Post'}
        : o.fulfilment === 'collection' ? {date: o.collectionDate || o.eventDate, time: o.collectionTime || '', label: 'Collection'}
        : {date: o.eventDate, time: '', label: 'Hand over'};
 }
+// Hand delivery and postage both send the order to an address and both can carry a delivery charge.
+const sendsOut = o => o.fulfilment === 'delivery' || o.fulfilment === 'post';
+// Orders saved before postage became a delivery option could have a separate post date.
+const oldPostDate = o => o.fulfilment !== 'post' && o.postDate ? o.postDate : '';
 function sums(o) {
-  const treats = P(o.price), delivery = o.fulfilment === 'delivery' ? P(o.deliveryFee) : 0, income = treats + delivery;
+  const treats = P(o.price), delivery = sendsOut(o) ? P(o.deliveryFee) : 0, income = treats + delivery;
   const costs = (o.costs || []).reduce((t, c) => t + P(c.amount), 0), deposit = P(o.deposit);
   const outstanding = o.balancePaid ? 0 : Math.max(0, income - deposit);
   return {treats, delivery, income, costs, deposit, outstanding, profit: income - costs};
@@ -21,8 +26,8 @@ function jobs(o) {
   if (o.status === 'Cancelled') return out;
   if (o.status !== 'Completed') {
     if (o.makeDate) out.push({date: o.makeDate, kind: 'make', label: 'Make', o});
-    if (o.postDate) out.push({date: o.postDate, kind: 'post', label: 'Post', o});
-    if (h.date) out.push({date: h.date, time: h.time, kind: 'hand', label: h.label, o});
+    if (oldPostDate(o)) out.push({date: o.postDate, kind: 'post', label: 'Post', o});
+    if (h.date) out.push({date: h.date, time: h.time, kind: h.label === 'Post' ? 'post' : 'hand', label: h.label, o});
     if (o.eventDate && o.eventDate !== h.date) out.push({date: o.eventDate, kind: 'event', label: 'Event', o});
   }
   if (s.outstanding > 0 && dueDate(o)) out.push({date: dueDate(o), kind: 'pay', label: gbp(s.outstanding) + ' due', o});
@@ -104,8 +109,11 @@ function calEvents(o) {
   const note = [items, o.eventDate && 'Event: ' + o.eventDate.split('-').reverse().join('/'), o.details, o.colourScheme && 'Colours: ' + o.colourScheme, o.allergies && 'ALLERGIES: ' + o.allergies, o.dietary && 'Dietary: ' + o.dietary, o.phone && 'Phone: ' + o.phone].filter(Boolean).join('\n');
   const out = [], ev = (key, title, date, time, mins, extra = '', location = '') => out.push({key, title, date, time, mins, details: note + extra, location, reminders: calReminders(time)});
   if (o.makeDate) ev('make', 'Make: ' + name + (items ? ' (' + items + ')' : ''), o.makeDate, CAL.make.time, CAL.make.mins);
-  if (o.postDate) ev('post', 'Post: ' + name + (items ? ' (' + items + ')' : ''), o.postDate, CAL.post.time, CAL.post.mins, o.deliveryAddress ? '\nAddress: ' + o.deliveryAddress : '');
-  if (h.date) {
+  if (oldPostDate(o)) ev('post', 'Post: ' + name + (items ? ' (' + items + ')' : ''), o.postDate, CAL.post.time, CAL.post.mins, o.deliveryAddress ? '\nAddress: ' + o.deliveryAddress : '');
+  if (h.date && o.fulfilment === 'post') {
+    ev('post', 'Post: ' + name + (items ? ' (' + items + ')' : ''), h.date, h.time || CAL.post.time, CAL.post.mins,
+      (h.time ? '' : '\n(No time set on the order.)') + (o.deliveryAddress ? '\nAddress: ' + o.deliveryAddress : ''), o.deliveryAddress || '');
+  } else if (h.date) {
     const addr = o.fulfilment === 'delivery' ? [o.deliveryLocation, o.deliveryAddress].filter(Boolean).join(', ') : '';
     ev('hand', (o.fulfilment === 'delivery' ? 'Deliver: ' : o.fulfilment === 'collection' ? 'Collection: ' : 'Hand over: ') + name, h.date, h.time || CAL.hand.time, CAL.hand.mins,
       (h.time ? '' : '\n(No time set on the order.)') + (addr ? '\nAddress: ' + addr : ''), addr);
@@ -188,4 +196,4 @@ function quote(q, cfg = PRICING) {
     verdict: !n ? 'empty' : n < cfg.minOrder ? 'min' : perHour >= cfg.hourly ? 'good' : 'low'};
 }
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-if (typeof module !== 'undefined') module.exports = {CAL, calEvents, calReminders, calSig, calOrder, SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays, PRICING, quote, fuelPence, roundTripMiles, ucDefault, ucShift, ucPeriod};
+if (typeof module !== 'undefined') module.exports = {sendsOut, oldPostDate, CAL, calEvents, calReminders, calSig, calOrder, SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays, PRICING, quote, fuelPence, roundTripMiles, ucDefault, ucShift, ucPeriod};

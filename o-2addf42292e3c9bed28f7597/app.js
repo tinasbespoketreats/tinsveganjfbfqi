@@ -84,27 +84,27 @@ function viewOrders() {
   app.innerHTML = `${dataNote()}<div class="row between"><h2>Orders</h2><a class="btn" href="#new-order">Add an order</a></div>
   <div class="row"><input type="search" id="q" aria-label="Search orders" placeholder="Search name, theme, colour…" value="${esc(S.q)}" style="flex:1 1 200px">
   <select id="fs" aria-label="Show" style="flex:0 1 170px">${['Active', ...STATUSES, 'All'].map(s => `<option ${s === S.status ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
-  <div class="stack" id="list">${list.length ? list.map(o => { const s = sums(o); return `<button class="docket" data-open="${esc(o.id)}">${dateTab(o.eventDate)}<div style="min-width:0"><strong>${esc(o.customerName)}</strong> ${o.example ? '<span class="pill">Example</span>' : ''}<div class="muted small">${esc(what(o))} · ${esc(o.fulfilment === 'delivery' ? 'Delivery' : o.fulfilment === 'collection' ? 'Collection' : 'Hand-over not set')}</div>${o.allergies ? `<div class="allergy small">Allergy: ${esc(o.allergies)}</div>` : ''}</div><div class="sum"><strong>${gbp(s.income)}</strong><br>${s.outstanding ? `<span class="pill pay">${gbp(s.outstanding)} to pay</span>` : '<span class="pill done">Paid</span>'}</div></button>`; }).join('') : `<div class="empty">No orders match. Try "All" or add a new order.</div>`}</div>`;
+  <div class="stack" id="list">${list.length ? list.map(o => { const s = sums(o); return `<button class="docket" data-open="${esc(o.id)}">${dateTab(o.eventDate)}<div style="min-width:0"><strong>${esc(o.customerName)}</strong> ${o.example ? '<span class="pill">Example</span>' : ''}<div class="muted small">${esc(what(o))} · ${esc({delivery: 'Hand delivery', post: 'Postage', collection: 'Collection'}[o.fulfilment] || 'Delivery not set')}</div>${o.allergies ? `<div class="allergy small">Allergy: ${esc(o.allergies)}</div>` : ''}</div><div class="sum"><strong>${gbp(s.income)}</strong><br>${s.outstanding ? `<span class="pill pay">${gbp(s.outstanding)} to pay</span>` : '<span class="pill done">Paid</span>'}</div></button>`; }).join('') : `<div class="empty">No orders match. Try "All" or add a new order.</div>`}</div>`;
 }
 
 function viewOrder() {
   const o = S.orders.find(x => x.id === S.open);
   if (!o) { location.hash = '#orders'; return; }
   const s = sums(o), h = handover(o), note = [what(o), o.details, o.colourScheme && 'Colours: ' + o.colourScheme, o.allergies && 'ALLERGIES: ' + o.allergies, o.phone && 'Phone: ' + o.phone].filter(Boolean).join('\n');
-  const cal = [o.makeDate && ['Make day', calUrl('Make: ' + o.customerName + ' (' + what(o) + ')', note, o.makeDate)], o.postDate && ['Post day', calUrl('Post: ' + o.customerName + ' (' + what(o) + ')', note, o.postDate)], h.date && [h.label, calUrl(h.label + ': ' + o.customerName, note + (o.deliveryAddress ? '\nAddress: ' + o.deliveryAddress : ''), h.date, h.time)], s.outstanding && dueDate(o) && ['Payment due', calUrl('Payment due ' + gbp(s.outstanding) + ': ' + o.customerName, note, dueDate(o))]].filter(Boolean);
+  const cal = [o.makeDate && ['Make day', calUrl('Make: ' + o.customerName + ' (' + what(o) + ')', note, o.makeDate)], oldPostDate(o) && ['Post day', calUrl('Post: ' + o.customerName + ' (' + what(o) + ')', note, o.postDate)], h.date && [h.label === 'Post' ? 'Post day' : h.label, calUrl(h.label + ': ' + o.customerName, note + (o.deliveryAddress ? '\nAddress: ' + o.deliveryAddress : ''), h.date, h.time)], s.outstanding && dueDate(o) && ['Payment due', calUrl('Payment due ' + gbp(s.outstanding) + ': ' + o.customerName, note, dueDate(o))]].filter(Boolean);
   const item = (k, v) => v ? `<div><h3>${k}</h3>${esc(v)}</div>` : '';
   app.innerHTML = `<div class="row between"><div><h2>${esc(o.customerName)}</h2><span class="muted">${esc(what(o))} for ${fmt(o.eventDate) || 'date not set'}</span></div>
   <div class="row"><label class="lab" for="st">Status</label><select id="st" style="width:auto">${STATUSES.map(x => `<option ${x === o.status ? 'selected' : ''}>${x}</option>`).join('')}</select></div></div>
   ${o.example ? '<div class="notice"><span>This is an example order.</span></div>' : ''}
   ${o.orderType === 'sample' ? `<div class="notice"><span><b>Sample box.</b> If they book a full order, take ${gbp(PRICING.sample.price)} off it.</span></div>` : ''}
   ${o.allergies ? `<div class="notice bad"><span class="allergy">Allergies: ${esc(o.allergies)}</span></div>` : ''}
-  <div class="total"><div><span>Treats</span><span>${gbp(s.treats)}</span></div>${o.fulfilment === 'delivery' ? `<div><span>Delivery</span><span>${gbp(s.delivery)}</span></div>` : ''}<div class="big"><span>Order income</span><span>${gbp(s.income)}</span></div><div><span>Expenses on this order</span><span>${gbp(s.costs)}</span></div><div><span>Profit</span><span class="${s.profit < 0 ? 'neg' : ''}">${gbp(s.profit)}</span></div><div><span>Deposit received</span><span>${gbp(s.deposit)}</span></div><div class="big"><span>Payment outstanding</span><span>${gbp(s.outstanding)}</span></div></div>
+  <div class="total"><div><span>Treats</span><span>${gbp(s.treats)}</span></div>${sendsOut(o) ? `<div><span>${o.fulfilment === 'post' ? 'Postage' : 'Delivery'}</span><span>${gbp(s.delivery)}</span></div>` : ''}<div class="big"><span>Order income</span><span>${gbp(s.income)}</span></div><div><span>Expenses on this order</span><span>${gbp(s.costs)}</span></div><div><span>Profit</span><span class="${s.profit < 0 ? 'neg' : ''}">${gbp(s.profit)}</span></div><div><span>Deposit received</span><span>${gbp(s.deposit)}</span></div><div class="big"><span>Payment outstanding</span><span>${gbp(s.outstanding)}</span></div></div>
   <div class="row">${s.outstanding ? `<button class="primary" id="paid">Mark balance as paid</button>` : o.balancePaid ? '<button id="unpaid">Undo balance paid</button>' : ''}<button id="edit">Edit order</button></div>
   ${S.cal ? `<section class="card"><h3>Google Calendar</h3><span>${calEvents(o).length ? `This order's ${calEvents(o).map(x => ({make: 'make day', post: 'post day', hand: h.label === 'Deliver' ? 'delivery' : h.label.toLowerCase()})[x.key]).join(', ').replace(/, ([^,]*)$/, ' and $1')} ${calEvents(o).length > 1 ? 'are' : 'is'} in your Google Calendar, with reminders 5 days before and on the day. Changes you make here update it by themselves.` : o.example ? 'Example orders are not put in your calendar.' : o.status === 'Cancelled' ? 'Cancelled, so it has been taken out of your calendar.' : 'Add a make, post, delivery or collection date and it will go in your calendar.'}</span></section>`
   : `<section class="card"><h3>Add to Google Calendar</h3><div class="row">${cal.length ? cal.map(([l, u]) => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">${esc(l)}</a>`).join('') : '<span class="muted">Add dates to the order to use this.</span>'}</div><a href="#calendar" class="small">Put every order in your calendar automatically, with reminders</a></section>`}
   <section class="card detail">
-    ${item('Email', o.email)}${item('Instagram', o.instagram)}${item('Phone', o.phone)}${item('Make on', fmt(o.makeDate))}${item('Post on', fmt(o.postDate))}${item(h.label, [fmt(h.date), h.time].filter(Boolean).join(' at '))}
-    ${item('Delivery address', o.fulfilment === 'delivery' && o.deliveryAddress)}${item('Delivery location', o.fulfilment === 'delivery' && o.deliveryLocation)}
+    ${item('Email', o.email)}${item('Instagram', o.instagram)}${item('Phone', o.phone)}${item('Make on', fmt(o.makeDate))}${item('Post on', fmt(oldPostDate(o)))}${item(h.label === 'Post' ? 'Post on' : h.label === 'Deliver' ? 'Hand delivery' : h.label, [fmt(h.date), h.time].filter(Boolean).join(' at '))}
+    ${item(o.fulfilment === 'post' ? 'Postal address' : 'Delivery address', sendsOut(o) && o.deliveryAddress)}${item('Delivery location', o.fulfilment === 'delivery' && o.deliveryLocation)}
     ${item('Dietary preference', o.dietary)}${item('Colour scheme', o.colourScheme)}${item('Packaging', [o.cellophane ? 'Wrapped in cellophane' : 'No cellophane', o.bow === 'with' ? 'with a ' + (o.bowColour || '') + ' bow' : o.bow === 'without' ? 'without a bow' : ''].filter(Boolean).join(', '))}
     ${item('Deposit paid on', s.deposit ? fmt(o.depositDate) : '')}${item('Paid in full on', o.balancePaid ? fmt(o.balancePaidDate) : '')}${item('Balance due on', s.outstanding ? fmt(dueDate(o)) : '')}
     <div class="full" style="grid-column:1/-1"><h3>Theme, design and ideas</h3>${esc(o.details) || '<span class="muted">Nothing added.</span>'}</div>
@@ -243,7 +243,7 @@ function showQuote() {
     Object.assign(d, {biscuits: true, biscuitQty: String(r.n), price: pounds(r.charge.total - r.charge.delivery),
       details: [r.lines.map(l => `${l.qty} × ${l.style}${PRICING.toppers[l.topper] ? ' (' + l.topper + ')' : ''}`).join('\n'), d.details].filter(Boolean).join('\n\n'),
       cellophane: !!q.wrapped, bow: q.wrapped ? 'with' : (d.bow || ''),
-      fulfilment: post ? 'delivery' : (d.fulfilment || 'collection'), deliveryFee: post ? pounds(r.charge.delivery) : '',
+      fulfilment: post ? (r.drive ? 'delivery' : 'post') : (d.fulfilment || 'collection'), deliveryFee: post ? pounds(r.charge.delivery) : '',
       deliveryAddress: d.deliveryAddress || (r.drive && q.postcode ? q.postcode.toUpperCase() : ''),
       costs: [['Ingredients', r.cost.ingredients], ['Toppers' + (sheetTxt ? ' (' + sheetTxt + ')' : ''), r.cost.toppers], ['Boxes (' + boxTxt + ')', r.cost.boxes], ['Bows', r.cost.bagsBows], ['Cutters', r.cost.cutters], [r.drive ? `Petrol (${r.drive.miles} miles)` : 'Postage', r.cost.postage]]
         .filter(([, a]) => a).map(([item, a]) => ({item, amount: pounds(a)}))});
@@ -257,6 +257,8 @@ function field(id, v, label, type = 'text', hint = '') { return `<div class="f">
 
 function viewForm(o) {
   const editing = !!o.id, pay = o.balancePaid ? 'paid' : P(o.deposit) > 0 ? 'deposit' : 'none';
+  // Older orders kept the post date apart from delivery: show those as Postage.
+  const ful = o.postDate && (!o.fulfilment || (o.fulfilment === 'delivery' && !o.deliveryDate && !o.deliveryTime)) ? 'post' : o.fulfilment;
   S.dirty = false;
   app.innerHTML = `${dataNote().includes('bad') ? dataNote() : ''}<h2>${editing ? 'Edit ' + esc(o.customerName) : 'New order'}</h2>
   <form id="f" novalidate>
@@ -268,7 +270,7 @@ function viewForm(o) {
     <div class="full">${field('customerName', o.customerName, 'Name')}<div id="nameHits" class="suggest" hidden></div></div>${field('email', o.email, 'Email', 'email')}${field('instagram', o.instagram, 'Instagram', 'text', 'Their username, e.g. @name')}${field('phone', o.phone, 'Phone number', 'tel')}
   </fieldset>
   <fieldset><legend>Dates</legend>
-    ${field('eventDate', o.eventDate, 'Date of event', 'date')}${field('makeDate', o.makeDate, 'Date I need to make these', 'date')}${field('postDate', o.postDate, 'Date I need to post these', 'date', 'Only if it is going in the post')}
+    ${field('eventDate', o.eventDate, 'Date of event', 'date')}${field('makeDate', o.makeDate, 'Date I need to make these', 'date')}
   </fieldset>
   <fieldset><legend>The order</legend>
     <div class="f"><label class="tick"><input type="checkbox" id="biscuits" name="biscuits" ${o.biscuits ? 'checked' : ''}>Biscuits</label><label class="lab" for="biscuitQty">Quantity</label><input type="number" min="0" step="1" inputmode="numeric" id="biscuitQty" name="biscuitQty" value="${esc(o.biscuitQty)}"></div>
@@ -286,11 +288,12 @@ function viewForm(o) {
     <div class="f"><span class="lab">Bow</span><div class="choices"><label class="tick"><input type="radio" name="bow" id="bowWith" value="with" ${o.bow === 'with' ? 'checked' : ''}>With a bow</label><label class="tick"><input type="radio" name="bow" id="bowWithout" value="without" ${o.bow === 'without' ? 'checked' : ''}>Without a bow</label></div></div>
     <div id="bowBox" class="full">${field('bowColour', o.bowColour, 'Bow colour')}</div>
   </fieldset>
-  <fieldset><legend>Delivery or collection</legend>
-    <div class="f full"><div class="choices"><label class="tick"><input type="radio" name="fulfilment" id="fDel" value="delivery" ${o.fulfilment === 'delivery' ? 'checked' : ''}>Delivery</label><label class="tick"><input type="radio" name="fulfilment" id="fCol" value="collection" ${o.fulfilment === 'collection' ? 'checked' : ''}>Collection</label></div></div>
-    <div id="delBox" class="full" style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
-      <div class="f" style="grid-column:1/-1"><label for="deliveryAddress">Delivery address</label><textarea id="deliveryAddress" name="deliveryAddress" style="min-height:70px">${esc(o.deliveryAddress)}</textarea></div>
-      ${field('deliveryLocation', o.deliveryLocation, 'Location', 'text', 'Venue, room or drop-off point')}${field('deliveryDate', o.deliveryDate, 'Delivery date', 'date', 'Leave blank for the event date')}${field('deliveryTime', o.deliveryTime, 'Delivery time', 'time')}
+  <fieldset><legend>Delivery</legend>
+    <div class="f full"><div class="choices"><label class="tick"><input type="radio" name="fulfilment" id="fDel" value="delivery" ${ful === 'delivery' ? 'checked' : ''}>Hand delivery</label><label class="tick"><input type="radio" name="fulfilment" id="fPost" value="post" ${ful === 'post' ? 'checked' : ''}>Postage</label><label class="tick"><input type="radio" name="fulfilment" id="fCol" value="collection" ${ful === 'collection' ? 'checked' : ''}>Collection</label></div></div>
+    <div id="sendBox" class="full" style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+      <div class="f" style="grid-column:1/-1"><label for="deliveryAddress">Address</label><textarea id="deliveryAddress" name="deliveryAddress" style="min-height:70px">${esc(o.deliveryAddress)}</textarea></div>
+      <div id="handBox" style="display:contents">${field('deliveryDate', o.deliveryDate, 'Date to be delivered', 'date', 'Leave blank for the event date')}${field('deliveryTime', o.deliveryTime, 'Time to be delivered', 'time')}<div style="grid-column:1/-1">${field('deliveryLocation', o.deliveryLocation, 'Location', 'text', 'Venue, room or drop-off point')}</div></div>
+      <div id="postBox" style="display:contents">${field('postDate', o.postDate, 'Date to be posted', 'date')}${field('postTime', o.postTime, 'Time to be posted', 'time')}</div>
     </div>
     <div id="colBox" class="full" style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       ${field('collectionDate', o.collectionDate, 'Collection date', 'date', 'Leave blank for the event date')}${field('collectionTime', o.collectionTime, 'Collection time', 'time')}
@@ -327,6 +330,9 @@ function viewForm(o) {
     d.costs = [...linesEl.children].map(l => ({item: l.querySelector('input[type=text]').value.trim(), amount: l.querySelector('input[type=number]').value})).filter(c => c.item || c.amount);
     const p = d.payment; d.balancePaid = p === 'paid'; d.balancePaidDate = p === 'paid' ? d.paidDate : '';
     if (p === 'none') { d.deposit = ''; d.depositDate = ''; }
+    if (d.fulfilment !== 'post') { d.postDate = ''; d.postTime = ''; }
+    if (d.fulfilment !== 'delivery') { d.deliveryDate = ''; d.deliveryTime = ''; d.deliveryLocation = ''; }
+    if (!sendsOut(d)) d.deliveryFee = '';
     delete d.paidDate; delete d.balanceDue; return d; };
   function sync() {
     const d = read(), s = sums({...o, ...d}), pm = f.querySelector('input[name=payment]:checked').value;
@@ -334,9 +340,12 @@ function viewForm(o) {
     f.querySelector('#paidBox').hidden = pm !== 'paid';
     f.querySelector('#dueHint').textContent = pm === 'paid' ? '' : d.eventDate ? 'The rest is due on the event date, ' + fmt(d.eventDate) + '.' : 'The rest is due on the event date.';
     f.querySelector('#bowBox').hidden = d.bow !== 'with';
-    f.querySelector('#delBox').style.display = d.fulfilment === 'delivery' ? 'grid' : 'none';
+    f.querySelector('#sendBox').style.display = sendsOut(d) ? 'grid' : 'none';
+    f.querySelector('#handBox').style.display = d.fulfilment === 'delivery' ? 'contents' : 'none';
+    f.querySelector('#postBox').style.display = d.fulfilment === 'post' ? 'contents' : 'none';
     f.querySelector('#colBox').style.display = d.fulfilment === 'collection' ? 'grid' : 'none';
-    f.querySelector('#feeBox').hidden = d.fulfilment !== 'delivery';
+    f.querySelector('#feeBox').hidden = !sendsOut(d);
+    f.querySelector('#feeBox label').textContent = d.fulfilment === 'post' ? 'Postage charge' : 'Delivery charge';
     f.querySelector('#tot').innerHTML = `<div class="big" style="border:0;margin:0;padding:0"><span>Order income, including delivery</span><span>${gbp(s.income)}</span></div><div><span>Expenses</span><span>${gbp(s.costs)}</span></div><div><span>Profit</span><span class="${s.profit < 0 ? 'neg' : ''}">${gbp(s.profit)}</span></div><div><span>Payment outstanding</span><span>${gbp(s.outstanding)}</span></div>`;
     return d;
   }
