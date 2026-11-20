@@ -108,7 +108,7 @@ function calEvents(o) {
   const items = [o.orderType === 'sample' ? 'Sample box (' + (o.biscuitQty || PRICING.sample.qty) + ' biscuits)' : [o.biscuits && (o.biscuitQty || '?') + ' biscuits', o.cupcakes && (o.cupcakeQty || '?') + ' cupcakes'].filter(Boolean).join(' + ')].filter(Boolean).join('');
   const note = [items, o.eventDate && 'Event: ' + o.eventDate.split('-').reverse().join('/'), o.details, o.colourScheme && 'Colours: ' + o.colourScheme, o.allergies && 'ALLERGIES: ' + o.allergies, o.dietary && 'Dietary: ' + o.dietary, o.phone && 'Phone: ' + o.phone].filter(Boolean).join('\n');
   const out = [], ev = (key, title, date, time, mins, extra = '', location = '') => out.push({key, title, date, time, mins, details: note + extra, location, reminders: calReminders(time)});
-  if (o.makeDate) ev('make', 'Make: ' + name + (items ? ' (' + items + ')' : ''), o.makeDate, CAL.make.time, CAL.make.mins);
+  if (o.makeDate) ev('make', '🍪 Make: ' + name + (items ? ' (' + items + ')' : ''), o.makeDate, CAL.make.time, CAL.make.mins);
   if (oldPostDate(o)) ev('post', 'Post: ' + name + (items ? ' (' + items + ')' : ''), o.postDate, CAL.post.time, CAL.post.mins, o.deliveryAddress ? '\nAddress: ' + o.deliveryAddress : '');
   if (h.date && o.fulfilment === 'post') {
     ev('post', 'Post: ' + name + (items ? ' (' + items + ')' : ''), h.date, h.time || CAL.post.time, CAL.post.mins,
