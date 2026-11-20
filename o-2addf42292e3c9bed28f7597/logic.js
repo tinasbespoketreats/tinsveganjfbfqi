@@ -1,5 +1,5 @@
 /* ---------- pure logic (tested) ---------- */
-const SOURCES = ['Too Good To Go', 'Uber Eats', 'Market trading'];
+const SOURCES = ['Too Good To Go', 'Uber Eats', 'Market trading', 'Website income'];
 const P = v => Math.round((parseFloat(v) || 0) * 100);
 const gbp = p => (p < 0 ? '-£' : '£') + (Math.abs(p) / 100).toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
