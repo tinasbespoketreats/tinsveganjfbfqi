@@ -30,7 +30,7 @@ function render() {
   const r = route();
   document.querySelectorAll('nav a').forEach(a => a.dataset.r === (r.startsWith('order-') ? 'orders' : r.startsWith('enquir') ? 'enquiries' : r) ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   navBadge();
-  if (r === 'new-order' || r === 'edit' || r === 'price' || r === 'enquiry-new' || r === 'import-photos') return; // forms are drawn once by go()
+  if (r === 'new-order' || r === 'edit' || r === 'price' || r === 'enquiry-new') return; // forms are drawn once by go()
   if (r === 'enquiries') return viewEnquiries();
   if (r.startsWith('enquiry/')) { const id = r.slice(8); if (S.enqOpen === id && S.enqTyping && app.querySelector('#eMsg')) return; S.enqOpen = id; return viewEnquiry(); }
   if (r === 'calendar' && app.querySelector('#calPage')) return;
@@ -348,48 +348,6 @@ function viewEnquiryNew() {
   };
 }
 
-
-/* one-off: bring customers' photos across from Jotform (match by file name) */
-const JOTFORM_PHOTOS = {"IMG_2125.jpeg":["a31a4cf8-5bc1-58f5-bc64-5d3e0d60378e","Inspiration photos","6708435812977885532"],"IMG_2125_8726.jpeg":["a31a4cf8-5bc1-58f5-bc64-5d3e0d60378e","Logo or photos","6708435812977885532"],"IMG_0082.jpeg":["3d0b5593-ba52-5724-9fd1-325f2aa95caf","Inspiration photos","6708362579414835467"],"IMG_0081.jpeg":["3d0b5593-ba52-5724-9fd1-325f2aa95caf","Inspiration photos","6708362579414835467"],"IMG_0080.jpeg":["3d0b5593-ba52-5724-9fd1-325f2aa95caf","Inspiration photos","6708362579414835467"],"IMG_0083.jpeg":["3d0b5593-ba52-5724-9fd1-325f2aa95caf","Inspiration photos","6708362579414835467"],"Baby deer.jpg":["95682884-d57f-5671-8ce6-252d19031a67","Inspiration photos","6706707216365151712"],"IMG_6121.png":["f74be1c0-4d5e-5556-89f2-43374f275e1f","Inspiration photos","6705556209212678912"],"IMG_6122.png":["f74be1c0-4d5e-5556-89f2-43374f275e1f","Inspiration photos","6705556209212678912"],"IMG_6010.png":["f74be1c0-4d5e-5556-89f2-43374f275e1f","Inspiration photos","6705556209212678912"],"BC266941-647B-4CE0-8906-9C0B54819A14.png":["4440752f-fa2b-5dcb-a527-6c543fa0c3bd","Inspiration photos","6704655727027522657"],"BC266941-647B-4CE0-8906-9C0B54819A14_9460.png":["4440752f-fa2b-5dcb-a527-6c543fa0c3bd","Logo or photos","6704655727027522657"],"Headphones and Espresso Cookie Pair.png":["5ef4dc63-d691-56eb-aa90-6b71816cdc9d","Inspiration photos","6702095904388025599"],"IMG_1652.jpeg":["d65c8608-b1b2-5ac6-a8b8-750f820758c3","Inspiration photos","6694641961719060786"],"IMG_1065.jpeg":["b5743106-d431-5a64-ac6b-613d0c749c09","Inspiration photos","6688176592815334277"],"IMG_1064.jpeg":["b5743106-d431-5a64-ac6b-613d0c749c09","Inspiration photos","6688176592815334277"],"IMG_8042.jpeg":["52b925a9-0a16-5833-912e-c4dc97ee35dd","Inspiration photos","6679559226229246287"],"IMG_8043.jpeg":["52b925a9-0a16-5833-912e-c4dc97ee35dd","Inspiration photos","6679559226229246287"],"IMG_4306.png":["295a72d7-1964-53f8-ac6d-895e7fb7ca7a","Inspiration photos","6672594178813537462"],"IMG_4308.png":["295a72d7-1964-53f8-ac6d-895e7fb7ca7a","Inspiration photos","6672594178813537462"],"IMG_4307.png":["295a72d7-1964-53f8-ac6d-895e7fb7ca7a","Inspiration photos","6672594178813537462"],"IMG_6147.png":["628654dc-3066-5feb-8812-98b5fd4bfb03","Inspiration photos","6669236696983609484"],"IMG_7908.jpeg":["15539a11-9f87-5f8d-a6d9-19e30e86220d","Inspiration photos","6658923379127170782"],"IMG_7909.jpeg":["15539a11-9f87-5f8d-a6d9-19e30e86220d","Inspiration photos","6658923379127170782"],"0D3CD86C-2A36-4BC6-96B1-7DA8F167F846.jpeg":["15539a11-9f87-5f8d-a6d9-19e30e86220d","Inspiration photos","6658923379127170782"],"C8596A8C-1712-4C3C-865C-1BF78595FBE5.png":["46530247-c683-5daf-acb4-50d4e170d594","Inspiration photos","6658015686022885048"],"IMG_3840.jpeg":["fb62b36c-7eb7-5ea7-9ba5-b0955f5da9bb","Inspiration photos","6657956117711835227"],"IMG_4011.png":["fb62b36c-7eb7-5ea7-9ba5-b0955f5da9bb","Inspiration photos","6657956117711835227"],"inbound641556594853105446.jpg":["083ee906-d44c-5af7-a954-f1c132759e5f","Inspiration photos","6628131561229704168"],"inbound2313873006509777003.jpg":["083ee906-d44c-5af7-a954-f1c132759e5f","Inspiration photos","6628131561229704168"],"inbound4568472899198646642.jpg":["083ee906-d44c-5af7-a954-f1c132759e5f","Inspiration photos","6628131561229704168"],"IMG_9492.png":["ede0f7dc-6c8c-5f3a-9044-52f10786b1ba","Inspiration photos","6627066336298115507"],"IMG_9492_4465.png":["ede0f7dc-6c8c-5f3a-9044-52f10786b1ba","Logo or photos","6627066336298115507"],"IMG_9730.jpeg":["a19b5760-6799-5bb7-9b7c-7891467fead1","Inspiration photos","6626381228023629370"],"IMG_9748.png":["a19b5760-6799-5bb7-9b7c-7891467fead1","Inspiration photos","6626381228023629370"],"IMG_0802.png":["2ba88a3c-051b-5522-af20-999e7f1963de","Inspiration photos","6623796907116155312"],"IMG_5763.jpeg":["41dd71ad-42a3-5949-b189-6f0f5ca4fcba","Inspiration photos","6617438444197654367"],"IMG_0774.jpeg":["59366923-285d-58da-8865-f572afe1894f","Inspiration photos","6581347993305573116"],"IMG_3224.png":["bece4db1-0f1c-5882-b382-78739dac8cc7","Inspiration photos","6575863664964310503"],"954E5047-9A54-417B-BDC7-C589A650FF8D.png":["8bb70939-8106-510f-91a1-cff6d6d96cee","Inspiration photos","6567739360695832067"]};
-function viewImportPhotos() {
-  app.innerHTML = `<p><a href="#enquiries">&larr; All enquiries</a></p><h2>Add photos from Jotform</h2>
-  <ol class="stack" style="padding-left:20px;list-style:decimal">
-    <li>In Jotform, open your form's <b>Submissions</b>, click <b>Download all</b> and choose <b>Download files</b>.</li>
-    <li>Open your <b>Downloads</b> folder, right-click the zip file and choose <b>Extract All</b>.</li>
-    <li>Press the button below, open the extracted folder and choose it (or select all the photos inside it).</li>
-  </ol>
-  <div class="row"><label class="btn primary" for="ipDir" tabindex="0">Choose the Jotform folder</label><label class="btn" for="ipFiles" tabindex="0">Or choose photos</label></div>
-  <input type="file" id="ipDir" webkitdirectory multiple hidden><input type="file" id="ipFiles" accept="image/*" multiple hidden>
-  <div id="ipOut" class="stack"></div>`;
-  const out = app.querySelector('#ipOut');
-  const run = async list => {
-    const files = [...list].filter(f => JOTFORM_PHOTOS[f.name]);
-    if (!files.length) { out.innerHTML = '<div class="notice warn"><span>None of those files match your Jotform enquiries. Make sure you chose the extracted Jotform folder.</span></div>'; return; }
-    const byEnq = {}, seen = {}; let done = 0, failed = 0;
-    out.innerHTML = '<p id="ipProg" class="muted"></p>';
-    for (const f of files) {
-      if (seen[f.name]) continue; seen[f.name] = 1;
-      const [id, label] = JOTFORM_PHOTOS[f.name], e = S.enquiries.find(x => x.id === id);
-      app.querySelector('#ipProg').textContent = `Adding photo ${done + failed + 1} of ${Object.keys(JOTFORM_PHOTOS).length}…`;
-      if (!e || (e.files || []).some(x => x.name === f.name)) { done++; continue; }
-      try {
-        const blob = f.size > 2.5 * 1048576 && /^image\/(jpeg|png|webp)$/.test(f.type) ? await shrink(f) : f;
-        const path = `${id}/jotform-${crypto.randomUUID().slice(0, 8)}.${blob.type === 'image/jpeg' ? 'jpg' : (f.name.split('.').pop() || 'jpg').toLowerCase()}`;
-        await TB.uploadTo(ENQ_BUCKET, path, blob);
-        (byEnq[id] ||= []).push({path, name: f.name, label}); done++;
-      } catch (x) { failed++; }
-    }
-    let saved = 0;
-    for (const [id, add] of Object.entries(byEnq)) {
-      const e = S.enquiries.find(x => x.id === id);
-      if (await enqSave(id, {files: [...(e.files || []), ...add]})) saved += add.length; else failed += add.length;
-    }
-    const missing = Object.keys(JOTFORM_PHOTOS).filter(n => !seen[n]).length;
-    out.innerHTML = `<div class="notice ${failed ? 'warn' : 'good'}"><span><b>${saved} photo${saved === 1 ? '' : 's'} added to your enquiries.</b>${failed ? ` ${failed} didn't upload. Check your connection and choose the folder again: photos already added are skipped.` : ''}${missing ? ` ${missing} photo${missing === 1 ? ' wasn\'t' : 's weren\'t'} in the folder you chose.` : ''}</span></div><a class="btn" href="#enquiries">Back to enquiries</a>`;
-  };
-  app.querySelector('#ipDir').onchange = ev => run(ev.target.files);
-  app.querySelector('#ipFiles').onchange = ev => run(ev.target.files);
-}
 
 /* price an order */
 S.pq = {lines: [{style: 'Logo / photo topper', qty: '', topper: 'Toppers 12 x 7cm'}], wrapped: false, delivery: 'Collection', shapes: '', customCutter: false, postcode: '', miles: '', driveMins: '', congestion: false, petrol: PRICING.car.petrol, mpg: PRICING.car.mpg};
@@ -878,7 +836,6 @@ function go() {
   if (r !== 'price') S.enqQuoting = null;
   if (r === 'price') { render(); viewPrice(); window.scrollTo(0, 0); return; }
   if (r === 'enquiry-new') { render(); viewEnquiryNew(); window.scrollTo(0, 0); return; }
-  if (r === 'import-photos') { render(); viewImportPhotos(); window.scrollTo(0, 0); return; }
   if (r.startsWith('enquiry/')) S.enqTyping = false;
   if (r === 'calendar') { render(); window.scrollTo(0, 0); return; }
   if (r === 'edit') { const o = S.orders.find(x => x.id === S.open); if (!o) { location.hash = '#orders'; return; } render(); viewForm(JSON.parse(JSON.stringify(o))); window.scrollTo(0, 0); return; }
