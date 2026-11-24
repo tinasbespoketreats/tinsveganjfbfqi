@@ -131,9 +131,9 @@ function viewOrder() {
 /* ---------- enquiries ---------- */
 // Enquiries from the website quote form, plus ones Tina adds herself from Instagram, WhatsApp, email or phone.
 const ENQ_BUCKET = 'enquiry-uploads', FROM_ENQ = 'tina-from-enquiry';
-const ENQ_STATUS = {new: 'New', quoted: 'Quoted', changed: 'Changed', confirmed: 'Confirmed', lost: 'Lost'};
+const ENQ_STATUS = {new: 'New', quoted: 'Quoted', changed: 'Changed', confirmed: 'Confirmed', lost: 'Lost', past: 'Past'};
 const ENQ_OPEN = ['new', 'changed', 'quoted'];
-const ENQ_SOURCES = {website: 'Website', instagram: 'Instagram', whatsapp: 'WhatsApp', email: 'Email', phone: 'Phone', facebook: 'Facebook', 'in-person': 'In person', other: 'Other'};
+const ENQ_SOURCES = {website: 'Website', jotform: 'Jotform', instagram: 'Instagram', whatsapp: 'WhatsApp', email: 'Email', phone: 'Phone', facebook: 'Facebook', 'in-person': 'In person', other: 'Other'};
 const ENQ_PRODUCTS = ['Custom biscuits', 'Branded biscuits', 'Edible logo or artwork biscuits', 'Edible image (photo) biscuits', 'Biscuit decorating activity box', 'Something else'];
 S.enquiries = []; S.enqFilter = 'Open'; S.enqQ = ''; S.enqOpen = null; S.enqMissing = false; S.enqQuoting = null; S.enqTyping = false;
 const enqSt = e => e.status && ENQ_STATUS[e.status] ? e.status : 'new';
@@ -247,7 +247,7 @@ function viewEnquiry() {
 
   <div class="row">${linkedOrder ? `<button class="primary big-btn" id="eOrderOpen">Open the order</button>` : `<button class="primary big-btn" id="eOrder">Turn into an order</button>`}</div>
 
-  <section class="card"><h3>What they asked for</h3>${(e.answers || []).map(g => `<div class="ans-group"><h4>${esc(g.title === 'Check and send' ? 'Other details' : g.title)}</h4><dl>${(g.rows || []).filter(x => !/accurate|consent|Agreed to allergy|postage notice/i.test(x[0])).map(x => `<dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd>`).join('')}</dl></div>`).join('') || '<p class="muted">No details.</p>'}</section>
+  <section class="card"><h3>What they asked for</h3>${(e.answers || []).map(g => `<div class="ans-group"><h4>${esc(g.title === 'Check and send' ? 'Other details' : g.title)}</h4><dl>${(g.rows || []).filter(x => !/accurate|consent|Agreed to allergy|postage notice/i.test(x[0])).map(x => `<dt>${esc(x[0])}</dt><dd>${esc(x[1]).replace(/https:\/\/[^\s<]+/g, u => `<a href="${u}" target="_blank" rel="noopener">${/\.(jpe?g|png|gif|webp|heic)$/i.test(u) ? 'View photo' : 'Open link'}</a>`)}</dd>`).join('')}</dl></div>`).join('') || '<p class="muted">No details.</p>'}</section>
   ${files.length ? `<section class="card"><h3>Photos and files (${files.length})</h3><div class="thumbs" id="eImgs"></div></section>` : ''}
   <section class="card"><h3>Your notes</h3><textarea id="eNotes" rows="4" placeholder="Anything to remember, e.g. called her on Tuesday, she'll confirm by Friday">${esc(e.notes || '')}</textarea><span class="hint" id="eNoteSaved"></span></section>
   <div class="row" id="edelrow"><button class="danger" id="eDel">Delete enquiry</button></div>`;

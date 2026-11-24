@@ -159,7 +159,7 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:0}
 .f .lbl{display:block;font-weight:700;font-size:14.5px;margin-bottom:6px}
 .nbadge{display:inline-block;min-width:18px;padding:0 5px;border-radius:99px;background:var(--accent);color:#fff;font-size:11px;line-height:17px;text-align:center;font-weight:800;vertical-align:1px;margin-left:3px}
 @media (max-width:440px){nav a{position:relative}.nbadge{position:absolute;top:1px;right:1px;margin:0;min-width:16px;font-size:10px;line-height:15px;padding:0 4px}}
-.pill.st-new{background:var(--warn-soft);color:var(--warn)} .pill.st-quoted{background:var(--info-soft);color:var(--info)} .pill.st-changed{background:var(--accent-soft);color:var(--accent)} .pill.st-confirmed{background:var(--good-soft);color:var(--good)} .pill.st-lost{background:var(--sunk);color:var(--muted)}
+.pill.st-new{background:var(--warn-soft);color:var(--warn)} .pill.st-quoted{background:var(--info-soft);color:var(--info)} .pill.st-changed{background:var(--accent-soft);color:var(--accent)} .pill.st-confirmed{background:var(--good-soft);color:var(--good)} .pill.st-lost,.pill.st-past{background:var(--sunk);color:var(--muted)}
 .quote{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:4px;white-space:pre-wrap;overflow-wrap:anywhere}
 .quote.ok{border-color:var(--good);background:var(--good-soft)}
 .quote button.small{justify-self:start;font-size:13px}
