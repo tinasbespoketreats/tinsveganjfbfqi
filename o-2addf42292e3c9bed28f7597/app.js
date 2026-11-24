@@ -174,7 +174,7 @@ function viewEnquiries() {
     .filter(e => !q || [e.name, e.email, e.phone, e.product, e.event, e.notes, JSON.stringify(e.answers || '')].join(' ').toLowerCase().includes(q))
     .sort((a, b) => rank(a) - rank(b) || (rank(a) < 3 ? (a.updated_at || a.created_at).localeCompare(b.updated_at || b.created_at) : b.created_at.localeCompare(a.created_at)));
   const counts = Object.keys(ENQ_STATUS).map(k => [k, S.enquiries.filter(e => enqSt(e) === k).length]);
-  app.innerHTML = `${dataNote()}<div class="row between"><h2>Enquiries</h2><a class="btn" href="#enquiry-new">Quick add</a></div>
+  app.innerHTML = `${dataNote()}<div class="row between"><h2>Enquiries</h2><div class="row"><button id="mlist">Mailing list</button><a class="btn" href="#enquiry-new">Quick add</a></div></div>
   <p class="hint">Every enquiry in one place. Ones from your website arrive here by themselves. Use <b>Quick add</b> for Instagram, WhatsApp, email or phone enquiries.</p>
   <div class="row"><input type="search" id="eq" aria-label="Search enquiries" placeholder="Search name, product, theme…" value="${esc(S.enqQ)}" style="flex:1 1 200px">
   <select id="ef" aria-label="Show" style="flex:0 1 190px">${['Open', ...Object.values(ENQ_STATUS), 'All'].map(s => `<option ${s === S.enqFilter ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
@@ -186,6 +186,14 @@ function viewEnquiries() {
     : `<div class="empty">${S.enquiries.length ? 'No enquiries match. Try "All".' : 'No enquiries yet. They will appear here as soon as someone fills in your quote form, or press Quick add to add one from Instagram or WhatsApp.'}</div>`}</div>`;
   const qi = app.querySelector('#eq'); qi.oninput = () => { S.enqQ = qi.value; const at = qi.selectionStart; viewEnquiries(); const n = app.querySelector('#eq'); n.focus(); n.setSelectionRange(at, at); };
   app.querySelector('#ef').onchange = ev => { S.enqFilter = ev.target.value; viewEnquiries(); };
+  app.querySelector('#mlist').onclick = async () => {
+    const seen = {}, rows = S.enquiries.filter(e => e.email && rawOf(e).marketing === true).sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .filter(e => { const k = e.email.trim().toLowerCase(); if (seen[k]) return false; seen[k] = 1; return true; })
+      .map(e => [firstName(e) === 'there' ? '' : firstName(e), e.name || '', e.email.trim(), e.created_at.slice(0, 10), ENQ_SOURCES[e.source] || 'Website', e.product || '']);
+    if (!rows.length) return toast('Nobody has signed up yet. People who tick the email box on your quote form will appear here.');
+    try { await S.downloads.save({filename: 'tinas-mailing-list-' + today() + '.csv', data: [['First name', 'Full name', 'Email', 'Signed up', 'Came from', 'Asked about'], ...rows].map(r => r.map(csvCell).join(',')).join('\n')}); toast(rows.length + (rows.length === 1 ? ' person' : ' people') + ' saved to your mailing list file'); }
+    catch (x) { toast("That file couldn't be saved here."); }
+  };
 }
 
 function enqMessage(e) {

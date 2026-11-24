@@ -337,12 +337,13 @@
           <option>Word of mouth or a recommendation</option><option>I've ordered before</option><option>A leaflet</option><option>An event or market</option><option value="Other">Other</option></select></div>
       <div class="cond f" data-if="heard=Other" hidden><label for="heardOther">Where did you hear about me? <span class="req">*</span></label><input id="heardOther" name="heardOther" required data-label="Found us via (other)"></div>
       <div class="f"><label for="extra">Anything else you'd like me to know? <span class="opt">(optional)</span></label><textarea id="extra" name="extra" data-label="Anything else"></textarea></div>
+      <label class="tick f"><input type="checkbox" id="marketing" name="marketing" data-label="Happy to receive emails about new designs and offers"> <span>Yes, send me occasional emails about new designs, seasonal treats and offers. <span class="opt">(optional, unsubscribe at any time)</span></span></label>
     </div>
   </fieldset>
 
   <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
 
-  <p class="hint" id="privacyLine" hidden style="margin:22px 0 0">Your details are only used to reply to your enquiry and prepare your quote. They're stored securely, never shared or sold, and you can ask me to delete them at any time.</p>
+  <p class="hint" id="privacyLine" hidden style="margin:22px 0 0">Your details are only used to reply to your enquiry and prepare your quote. They're stored securely, never shared or sold, and you can ask me to delete them at any time. I'll only send you other emails if you tick the box above.</p>
 
   <div class="nav">
     <button type="button" class="back" id="back" hidden>Back</button>
