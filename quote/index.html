@@ -677,7 +677,10 @@
     mail["Open in your order book"] = savedDb ? CFG.orderBook + id : "Not saved (connection problem). This email is the only copy.";
     mail["Reference"] = id.slice(0, 8).toUpperCase();
     try {
-      var r2 = await fetch(CFG.email, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(mail) });
+      // Don't keep the customer waiting if the email service is slow: give it 10 seconds
+      var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, savedDb ? 10000 : 25000);
+      var r2 = await fetch(CFG.email, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(mail), signal: ctl.signal });
+      clearTimeout(timer);
       emailed = r2.ok;
     } catch (e) {}
 
