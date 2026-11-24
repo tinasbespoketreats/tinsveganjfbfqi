@@ -386,6 +386,9 @@
   }
   function test(rule) {
     var i = rule.indexOf("="), k = rule.slice(0, i), opts = rule.slice(i + 1).split("|");
+    var el = form.elements[k];
+    // A question that's switched off counts as unanswered, so questions that depend on it stay hidden too
+    if (el && el.closest && el.closest(".cond[hidden]")) return false;
     return opts.indexOf(val(k)) > -1;
   }
   // Is this question switched on? (ignores which step is currently on screen)
