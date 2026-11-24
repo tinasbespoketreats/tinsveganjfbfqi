@@ -186,7 +186,7 @@
     <div class="cond fields" data-if="product=branded" hidden>
       <p class="intro" style="margin:0">Perfect for showcases, brand activations, product launches, company anniversaries, client gifting, conferences, PR mailers and staff celebrations.</p>
       <div class="f"><label for="b_company">Company or brand name <span class="opt">(optional)</span></label><input id="b_company" name="b_company" autocomplete="organization" data-label="Company or brand"></div>
-      <div class="f"><label for="b_qty">How many biscuits? <span class="req">*</span></label><p class="hint">Minimum order: 10 biscuits.</p><input id="b_qty" name="b_qty" type="number" inputmode="numeric" min="10" step="1" required data-label="Quantity"></div>
+      <div class="f"><label for="b_qty">How many biscuits? <span class="req">*</span></label><p class="hint">Minimum order: 12 biscuits.</p><input id="b_qty" name="b_qty" type="number" inputmode="numeric" min="12" step="1" required data-label="Quantity"></div>
       <div class="f"><label for="b_stamp">Will this order need a custom stamp or cutter shape? <span class="req">*</span></label><p class="hint">For example, a biscuit cut in the shape of your logo, or your logo stamped into the biscuit.</p>
         <select id="b_stamp" name="b_stamp" required data-label="Custom stamp or cutter"><option value="">Please choose</option><option>Yes</option><option>No</option><option>Not sure, please advise</option></select></div>
       <div class="f"><label for="b_details">What are you looking for? <span class="req">*</span></label><p class="hint">Please include as much detail as you can: what you or your client are looking for, the shapes, rough sizes of each biscuit, and how many of each design.</p><textarea id="b_details" name="b_details" required style="min-height:150px" data-label="What they're looking for"></textarea></div>
@@ -197,7 +197,7 @@
     <div class="cond fields" data-if="product=logo" hidden>
       <p class="intro" style="margin:0">Your logo or artwork is printed on edible sugar paper using high-quality printing, then finished by hand on the biscuit.</p>
       <div class="f"><label for="l_company">Company or brand name <span class="opt">(optional)</span></label><input id="l_company" name="l_company" autocomplete="organization" data-label="Company or brand"></div>
-      <div class="f"><label for="l_qty">How many biscuits? <span class="req">*</span></label><p class="hint">Minimum order: 10 biscuits.</p><input id="l_qty" name="l_qty" type="number" inputmode="numeric" min="10" step="1" required data-label="Quantity"></div>
+      <div class="f"><label for="l_qty">How many biscuits? <span class="req">*</span></label><p class="hint">Minimum order: 12 biscuits.</p><input id="l_qty" name="l_qty" type="number" inputmode="numeric" min="12" step="1" required data-label="Quantity"></div>
       <div class="f"><label for="l_shape">Biscuit shape <span class="req">*</span></label>
         <select id="l_shape" name="l_shape" required data-label="Shape"><option value="">Please choose</option><option>Circle</option><option>Square</option><option value="Custom shape">Custom shape</option></select></div>
       <div class="cond f" data-if="l_shape=Custom shape" hidden><label for="l_custom">What shape and size would you like? <span class="req">*</span></label><input id="l_custom" name="l_custom" required placeholder="e.g. the outline of our logo, about 8cm wide" data-label="Custom shape and size"></div>
@@ -208,7 +208,7 @@
     <!-- Edible image -->
     <div class="cond fields" data-if="product=image" hidden>
       <p class="intro" style="margin:0">Fantastic for birthdays, anniversaries, baby showers (with a baby scan photo), gender reveals, graduations, hen parties, retirements, proud pet owners and anyone with main character energy!</p>
-      <div class="f"><label for="i_qty">How many biscuits? <span class="req">*</span></label><p class="hint">Minimum order: 10 biscuits.</p><input id="i_qty" name="i_qty" type="number" inputmode="numeric" min="10" step="1" required data-label="Quantity"></div>
+      <div class="f"><label for="i_qty">How many biscuits? <span class="req">*</span></label><p class="hint">Minimum order: 6 biscuits.</p><input id="i_qty" name="i_qty" type="number" inputmode="numeric" min="6" step="1" required data-label="Quantity"></div>
       <div class="f" data-upload="i_files" data-required="1" data-label="Photos"><span class="lbl">Upload your photos <span class="req">*</span></span><p class="hint">Clear, bright, high-quality photos print best. Please don't send blurry or heavily zoomed images.</p></div>
       <div class="f"><label for="i_shape">Choose your shape <span class="req">*</span></label>
         <select id="i_shape" name="i_shape" required data-label="Shape"><option value="">Please choose</option><option>Heart</option><option>Square</option><option>Circle</option></select></div>
@@ -437,7 +437,7 @@
     else if (v && el.type === "number") {
       var n = Number(v), min = Number(el.min || 0);
       if (!Number.isInteger(n)) msg = "Please enter a whole number.";
-      else if (n < min) msg = min >= 10 ? "The minimum order is " + min + " biscuits." : "Please enter at least " + min + ".";
+      else if (n < min) msg = min > 1 ? "The minimum order is " + min + " biscuits." : "Please enter at least " + min + ".";
     }
     else if (v && el.type === "date") {
       var today = new Date(); today.setHours(0, 0, 0, 0);
