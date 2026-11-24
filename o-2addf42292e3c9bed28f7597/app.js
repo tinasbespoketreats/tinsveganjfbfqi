@@ -192,8 +192,7 @@ function enqMessage(e) {
   const qs = e.quotes || [], q = qs.filter(x => x.accepted).pop() || qs[qs.length - 1], when = e.date_needed ? ' for ' + fmt(e.date_needed, {day: 'numeric', month: 'long'}) : '';
   const sign = '\n\nChristina\nTina\'s Bespoke Treats';
   if (!q) return `Hi ${firstName(e)},\n\nThank you so much for your enquiry${when}! I'm looking through your details now and will send you a personalised quote very soon.${sign}`;
-  const dep = gbp(Math.round(P(q.price) / 2));
-  return `Hi ${firstName(e)},\n\nThank you for your enquiry${when}! Here is your personalised quote:\n\n${q.includes}\n\nTotal: ${gbp(P(q.price))}${P(q.delivery) ? ' (including ' + gbp(P(q.delivery)) + ' delivery)' : ''}${q.note ? '\n\n' + q.note : ''}\n\nTo secure your date, I take a 50% deposit of ${dep}, with the rest due before collection or delivery. Just let me know if you'd like to go ahead, or if you'd like to change anything and I'll update your quote.${sign}`;
+  return `Hi ${firstName(e)},\n\nThank you for your enquiry${when}! Here is your personalised quote:\n\n${q.includes}\n\nTotal: ${gbp(P(q.price))}${P(q.delivery) ? ' (including ' + gbp(P(q.delivery)) + ' delivery)' : ''}${q.note ? '\n\n' + q.note : ''}\n\nFull payment of ${gbp(P(q.price))} confirms your order and secures your date. Just let me know if you'd like to go ahead, or if you'd like to change anything and I'll update your quote.${sign}`;
 }
 const waNumber = p => { let d = String(p || '').replace(/[^\d+]/g, ''); if (d.startsWith('+')) d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2); else if (d.startsWith('0')) d = '44' + d.slice(1); return d.length >= 10 ? d : ''; };
 
@@ -417,8 +416,7 @@ function showQuote() {
   out.innerHTML = `${r.drive && !r.drive.miles ? '<div class="notice warn"><span>Type the delivery postcode and press <b>Work out miles</b> to add the delivery.</span></div>' : ''}
   <section class="answer" aria-label="The answer">
     <div class="ans-main"><span>Charge the customer</span><b id="ansCharge">${gbp(r.charge.total)}</b></div>
-    <div class="ans-row"><span>Deposit to ask for now</span><b id="ansDeposit">${gbp(r.deposit)}</b></div>
-    <div class="ans-row"><span>Still to pay on the day</span><b>${gbp(r.charge.total - r.deposit)}</b></div>
+    <div class="ans-row"><span>Payment to confirm the order</span><b id="ansDeposit">${gbp(r.charge.total)}</b></div>
     <div class="ans-row"><span>It costs you</span><b id="ansCost">${gbp(r.cost.total)}</b></div>
     <div class="ans-row keep"><span>You keep</span><b id="ansKeep" class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</b></div>
     <div class="ans-row"><span>Time it will take</span><b id="ansTime">${timeTxt(r.minutes)}</b></div>
@@ -429,7 +427,7 @@ function showQuote() {
   <section class="card"><h3>What the customer pays</h3><div class="total">
     ${r.lines.map(l => row(`${l.qty} × ${esc(l.style)} at ${gbp(l.price)}`, gbp(l.total))).join('')}
     ${r.charge.wrapping ? row('Individual wrapping', gbp(r.charge.wrapping)) : ''}${r.charge.cutters ? row('Cutters', gbp(r.charge.cutters)) : ''}${r.charge.delivery ? row(r.drive ? `Personal delivery (${r.drive.mins} mins each way, ${r.drive.miles} miles there and back${r.drive.congestion ? ', including ' + gbp(PRICING.car.congestion) + ' Congestion Charge' : ''})` : esc(q.delivery), gbp(r.charge.delivery)) : ''}
-    ${row('Total to charge', gbp(r.charge.total), 'big')}${row('Deposit to take (50%)', gbp(r.deposit))}</div>
+    ${row('Total to charge', gbp(r.charge.total), 'big')}${row('Paid in full to confirm', gbp(r.charge.total))}</div>
     <p class="hint">${r.n} biscuits, so the ${TIER_NAMES[r.tier]} biscuits price is used.</p></section>
   <section class="card"><h3>What it costs you</h3><div class="total">
     ${row('Ingredients (biscuit and icing)', gbp(r.cost.ingredients))}${r.cost.toppers ? row(`Toppers (buy ${esc(sheetTxt)})`, gbp(r.cost.toppers)) : ''}
