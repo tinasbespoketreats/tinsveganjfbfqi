@@ -293,7 +293,7 @@
       </div>
 
       <div class="cond fields" data-if="receive=deliver" hidden>
-        <p class="note">Hand delivery starts from £5, depending on your location. Enter your postcode below to see an estimate. I'll be in touch to confirm the delivery time and price.</p>
+        <p class="note">Hand delivery starts from £5, depending on your location. I'll be in touch to confirm the delivery time and price.</p>
         <div class="row2">
           <div class="f"><label for="deliverDate">Delivery date <span class="req">*</span></label><input id="deliverDate" name="deliverDate" type="date" required data-label="Delivery date"></div>
           <div class="f"><label for="deliverTime">Delivery time <span class="req">*</span></label>
@@ -308,7 +308,6 @@
           <div class="f"><label for="town">Town or city <span class="req">*</span></label><input id="town" name="town" autocomplete="address-level2" required data-label="Town or city"></div>
           <div class="f"><label for="postcode">Postcode <span class="req">*</span></label><input id="postcode" name="postcode" autocomplete="postal-code" autocapitalize="characters" required data-label="Postcode"></div>
         </div>
-        <div class="cond note" data-if="receive=deliver" id="delEst" aria-live="polite" hidden>Enter your postcode above to see an estimated hand delivery price.</div>
       </div>
     </div>
   </fieldset>
@@ -361,17 +360,7 @@
     bucket: "enquiry-uploads",
     email: "https://formsubmit.co/ajax/tinasbespoketreats@gmail.com",
     orderBook: "https://tinasbespoketreats.com/o-2addf42292e3c9bed28f7597/#enquiries",
-    maxFiles: 10, maxMB: 15,
-    // Hand delivery estimate: drive there and back from Tina's kitchen
-    delivery: {
-      homeLat: 51.639275, homeLon: -0.054159,            // N9 7LJ
-      perHour: 14.8, perMile: 0.55, min: 5,                  // charged for both journeys: there and back
-      roadFactor: 1.3,
-      // Drive time: 12mph anywhere in London (within 12 miles of the centre) + 15 mins crawl in central London;
-      // outside London the first 5 miles at 12mph, the rest at 35mph
-      londonMiles: 12, londonMph: 12, centralMiles: 2.5, centralExtraMins: 15, slowMiles: 5, openMph: 35,
-      congestion: 18                                       // London Congestion Charge, added when it applies
-    }
+    maxFiles: 10, maxMB: 15
   };
   var PRODUCTS = {
     custom: ["Custom biscuits", "Your custom biscuits", "Hand-decorated biscuits designed around your theme, colours and personalisation."],
@@ -546,69 +535,6 @@
     });
   }
 
-  // --- hand delivery estimate ---
-  var est = null;
-  async function where(pc) {
-    var r = await fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(pc.replace(/\s+/g, "")));
-    if (!r.ok) throw r.status;
-    var d = (await r.json()).result; return { lat: d.latitude, lon: d.longitude, pc: d.postcode };
-  }
-  // Central London Congestion Charge zone (approximate outline of the Inner Ring Road)
-  var CCZ = [[51.5205,-0.1640],[51.5225,-0.1570],[51.5238,-0.1440],[51.5275,-0.1320],[51.5305,-0.1230],[51.5320,-0.1058],[51.5257,-0.0877],[51.5235,-0.0775],[51.5150,-0.0720],[51.5100,-0.0715],[51.5010,-0.0750],[51.4935,-0.0800],[51.4950,-0.1005],[51.4870,-0.1180],[51.4880,-0.1275],[51.4960,-0.1440],[51.5027,-0.1527],[51.5130,-0.1585]];
-  var BANK_HOLS = ["2026-12-25","2026-12-28","2027-01-01","2027-03-26","2027-03-29","2027-05-03","2027-05-31","2027-08-30","2027-12-27","2027-12-28"];
-  function inZone(lat, lon) {
-    var inside = false;
-    for (var i = 0, j = CCZ.length - 1; i < CCZ.length; j = i++) {
-      var yi = CCZ[i][0], xi = CCZ[i][1], yj = CCZ[j][0], xj = CCZ[j][1];
-      if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
-    }
-    return inside;
-  }
-  // Charging hours: Mon–Fri 7am–6pm; weekends and bank holidays 12pm–6pm; none from Christmas Day to New Year's Day.
-  // Returns true / false, or null if the date or time isn't chosen yet.
-  function charging(dateStr, slot) {
-    if (!dateStr || !slot) return null;
-    var md = dateStr.slice(5);
-    if (md >= "12-25" || md === "01-01") return false;
-    if (slot === "eve") return false;
-    var day = new Date(dateStr + "T12:00").getDay(), weekendish = day === 0 || day === 6 || BANK_HOLS.indexOf(dateStr) > -1;
-    return weekendish ? slot === "pm" : true;
-  }
-  function miles(aLat, aLon, bLat, bLon) {
-    var r = Math.PI / 180, h = Math.sin((bLat - aLat) * r / 2) ** 2 + Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin((bLon - aLon) * r / 2) ** 2;
-    return 2 * 3958.8 * Math.asin(Math.sqrt(h));
-  }
-  var spot = null;
-  async function estimate(e) {
-    var box = $("delEst"), pc = val("postcode"), D = CFG.delivery;
-    est = null;
-    if (val("receive") !== "deliver") return;
-    if (!/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(pc)) { spot = null; box.textContent = "Enter your postcode above to see an estimated hand delivery price."; return; }
-    try {
-      if (!spot || spot.typed !== pc.toUpperCase().replace(/\s+/g, "")) {
-        box.textContent = "Working out your delivery price…";
-        spot = await where(pc); spot.typed = pc.toUpperCase().replace(/\s+/g, "");
-      }
-      var fromCentre = miles(spot.lat, spot.lon, 51.5074, -0.1278);
-      var road = miles(D.homeLat, D.homeLon, spot.lat, spot.lon) * D.roadFactor, mins;
-      if (fromCentre > D.londonMiles) mins = Math.min(road, D.slowMiles) / D.londonMph * 60 + Math.max(0, road - D.slowMiles) / D.openMph * 60;
-      else mins = road / D.londonMph * 60 + (inZone(spot.lat, spot.lon) || fromCentre <= D.centralMiles ? D.centralExtraMins : 0);
-      var base = Math.max(D.min, 2 * (mins / 60 * D.perHour + road * D.perMile));   // there and back
-      var zone = inZone(spot.lat, spot.lon), cc = zone ? charging(val("deliverDate"), val("deliverTime")) : false;
-      var price = Math.round(base + (cc ? D.congestion : 0));
-      est = { price: price, miles: Math.round(road * 2), mins: Math.max(5, Math.round(mins / 5) * 5), pc: spot.pc, cc: cc };
-      var line = "<strong>Estimated hand delivery: £" + price + (cc ? ", including the £" + D.congestion + " London Congestion Charge" : "") + "</strong><br>About " + est.mins + " minutes' drive each way between Edmonton and " + esc(spot.pc) + " (" + est.miles + " miles there and back).";
-      if (zone && cc === null) line += "<br>This address is inside the London Congestion Charge zone. If delivery falls within charging hours, £" + D.congestion + " will be added. Choose a date and time above to see the full price.";
-      if (zone && cc === false) line += "<br>No Congestion Charge applies at the date and time you've chosen.";
-      box.innerHTML = line + "<br>This is an estimate. I'll confirm the exact price with you.";
-    } catch (err) {
-      spot = null;
-      box.textContent = err === 404 ? "I couldn't find that postcode. Please check it. I'll confirm the delivery price with you either way." : "I couldn't work out an estimate just now. I'll confirm the delivery price with you.";
-    }
-  }
-  $("postcode").addEventListener("change", estimate);
-  ["receive", "deliverDate", "deliverTime"].forEach(function (k) { $(k).addEventListener("change", estimate); });
-
   // --- answers in order (only visible questions) ---
   function answers() {
     var out = [], seen = {};
@@ -629,7 +555,6 @@
         if (el.type === "date" && v) v = new Date(v + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
         if (v) group.rows.push([el.dataset.label, v]);
       });
-      if (s.dataset.name === "Getting your order" && est && val("receive") === "deliver") group.rows.push(["Estimated delivery price", "£" + est.price + " (about " + est.miles + " miles there and back, " + est.mins + " mins each way" + (est.cc ? ", includes Congestion Charge" : "") + ")"]);
       if (group.rows.length) out.push(group);
     });
     return out;
