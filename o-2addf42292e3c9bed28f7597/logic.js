@@ -136,11 +136,12 @@ const PRICING = {
   wrap: 20, firstCutter: 800, extraCutter: 400, customCutter: 1200,
   delivery: {'Collection': 0, 'Personal delivery': 0, 'Royal Mail – small': 900, 'Royal Mail – medium': 1200, 'Royal Mail – large': 1800},
   // Personal delivery: petrol in pence per litre, car miles per gallon (UK), and the extra distance roads add to a straight line.
-  // Customer pays for the drive there: £14.80 an hour (London Living Wage) + 55p a mile (HMRC rate), to the nearest £1, £5 minimum,
+  // Customer pays for both journeys (there and back): £14.80 an hour (London Living Wage) + 55p a mile (HMRC rate), to the nearest £1, £5 minimum,
   // plus the £18 London Congestion Charge when the delivery is in the zone during charging hours. Same formula as the website quote form.
-  // Driving speeds (miles from central London → mph) make busy areas take longer.
+  // Drive time: 12mph anywhere in London (within 12 miles of the centre), plus 15 mins of crawling in central London;
+  // outside London, the first 5 miles at 12mph and the rest at 35mph.
   car: {home: 'N9 7LJ', petrol: 179, mpg: 40, roadFactor: 1.3, minCharge: 500, perMile: 55, perHour: 1480, congestion: 1800,
-    speeds: [[2.5, 9], [7, 14], [Infinity, 30]]},
+    londonMiles: 12, londonMph: 12, centralMiles: 2.5, centralExtraMins: 15, slowMiles: 5, openMph: 35},
   base: {flour: [80, 120], sugar: [225, 150], vitalite: [200, 44], vanilla: [899, 300]},
   icing: {fondant: [290, 40], royal: [265, 60]},
   toppers: {'Toppers 12 x 7cm': [834, 12], 'Toppers 6 x 7cm': [761, 6], 'Toppers custom shape': [551, 9]},
@@ -170,9 +171,9 @@ function inCongestionZone(p) {
 }
 // Estimated minutes to drive from home to the customer (one way), slower in busy parts of London.
 function driveMinsThere(home, dest, cfg = PRICING) {
-  const oneWay = roundTripMiles(home, dest) / 2, fromCentre = roundTripMiles({lat: 51.5074, lon: -0.1278}, dest, 1) / 2;
-  const mph = inCongestionZone(dest) ? cfg.car.speeds[0][1] : cfg.car.speeds.find(([within]) => fromCentre <= within)[1];
-  return Math.round(oneWay / mph * 60);
+  const c = cfg.car, oneWay = roundTripMiles(home, dest) / 2, fromCentre = roundTripMiles({lat: 51.5074, lon: -0.1278}, dest, 1) / 2;
+  if (fromCentre > c.londonMiles) return Math.round(Math.min(oneWay, c.slowMiles) / c.londonMph * 60 + Math.max(0, oneWay - c.slowMiles) / c.openMph * 60);
+  return Math.round(oneWay / c.londonMph * 60 + (inCongestionZone(dest) || fromCentre <= c.centralMiles ? c.centralExtraMins : 0));
 }
 function quote(q, cfg = PRICING) {
   const lines = (q.lines || []).map(l => ({...l, qty: Math.max(0, Math.floor(+l.qty || 0))})).filter(l => l.qty && cfg.styles[l.style]);
@@ -188,8 +189,8 @@ function quote(q, cfg = PRICING) {
   };
   const drive = q.delivery === 'Personal delivery', miles = drive ? Math.max(0, +q.miles || 0) : 0;
   const petrol = q.petrol > 0 ? +q.petrol : cfg.car.petrol, mpg = q.mpg > 0 ? +q.mpg : cfg.car.mpg, fuel = fuelPence(miles, petrol, mpg);
-  const driveMins = drive ? (+q.driveMins > 0 ? +q.driveMins : Math.round(miles / 2 / cfg.car.speeds[2][1] * 60)) : 0, cc = drive && !!q.congestion;
-  if (drive) charge.delivery = Math.max(cfg.car.minCharge, Math.round((miles / 2 * cfg.car.perMile + driveMins / 60 * cfg.car.perHour) / 100) * 100) + (cc ? cfg.car.congestion : 0);
+  const driveMins = drive ? (+q.driveMins > 0 ? +q.driveMins : Math.round(miles / 2 / cfg.car.londonMph * 60)) : 0, cc = drive && !!q.congestion;
+  if (drive) charge.delivery = Math.max(cfg.car.minCharge, Math.round((miles * cfg.car.perMile + 2 * driveMins / 60 * cfg.car.perHour) / 100) * 100) + (cc ? cfg.car.congestion : 0);
   charge.total = charge.biscuits + charge.wrapping + charge.cutters + charge.delivery;
   const base = Object.values(cfg.base).reduce((t, c) => t + each(c), 0);
   const byTopper = {}; lines.forEach(l => { if (cfg.toppers[l.topper]) byTopper[l.topper] = (byTopper[l.topper] || 0) + l.qty; });

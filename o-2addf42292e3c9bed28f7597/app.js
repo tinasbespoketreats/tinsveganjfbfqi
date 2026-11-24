@@ -154,7 +154,7 @@ function viewPrice() {
     <div id="qcar" class="full qcar" ${q.delivery === 'Personal delivery' ? '' : 'hidden'}>
       <div class="f"><label for="qpc">Delivery postcode</label><div class="row" style="flex-wrap:nowrap"><input type="text" id="qpc" autocomplete="off" autocapitalize="characters" placeholder="e.g. EN1 3PL" value="${esc(q.postcode)}" style="flex:1 1 auto"><button type="button" id="qfind">Work out miles</button></div></div>
       <div class="f"><label for="qmiles">Miles there and back</label><input type="number" id="qmiles" min="0" step="0.1" inputmode="decimal" value="${esc(q.miles)}"><span class="hint" id="qmhint">From ${esc(PRICING.car.home)} to the customer and back. You can type your own miles.</span></div>
-      <div class="f"><label for="qmins">Minutes driving there</label><input type="number" id="qmins" min="0" step="1" inputmode="numeric" value="${esc(q.driveMins)}"><span class="hint">Charged at ${gbp(PRICING.car.perHour)} an hour, plus ${PRICING.car.perMile}p a mile for the drive there. You can type your own time.</span></div>
+      <div class="f"><label for="qmins">Minutes driving there</label><input type="number" id="qmins" min="0" step="1" inputmode="numeric" value="${esc(q.driveMins)}"><span class="hint">One way. The customer pays for the drive there and back: ${gbp(PRICING.car.perHour)} an hour plus ${PRICING.car.perMile}p a mile. You can type your own time.</span></div>
       <label class="tick full"><input type="checkbox" id="qcc" ${q.congestion ? 'checked' : ''}>Add the London Congestion Charge (${gbp(PRICING.car.congestion)}). Weekdays 7am to 6pm, weekends and bank holidays 12pm to 6pm.</label>
       <p class="err" id="qcarErr" role="alert" hidden></p>
       <div class="f"><label for="qpetrol">Petrol price per litre</label><div class="money"><input type="number" id="qpetrol" min="0" step="0.01" inputmode="decimal" value="${(q.petrol / 100).toFixed(2)}"></div></div>
@@ -230,7 +230,7 @@ function showQuote() {
   <details class="howto"><summary>Show how this was worked out</summary><div class="stack">
   <section class="card"><h3>What the customer pays</h3><div class="total">
     ${r.lines.map(l => row(`${l.qty} × ${esc(l.style)} at ${gbp(l.price)}`, gbp(l.total))).join('')}
-    ${r.charge.wrapping ? row('Individual wrapping', gbp(r.charge.wrapping)) : ''}${r.charge.cutters ? row('Cutters', gbp(r.charge.cutters)) : ''}${r.charge.delivery ? row(r.drive ? `Personal delivery (${r.drive.mins} mins drive there${r.drive.congestion ? ', including ' + gbp(PRICING.car.congestion) + ' Congestion Charge' : ''})` : esc(q.delivery), gbp(r.charge.delivery)) : ''}
+    ${r.charge.wrapping ? row('Individual wrapping', gbp(r.charge.wrapping)) : ''}${r.charge.cutters ? row('Cutters', gbp(r.charge.cutters)) : ''}${r.charge.delivery ? row(r.drive ? `Personal delivery (${r.drive.mins} mins each way, ${r.drive.miles} miles there and back${r.drive.congestion ? ', including ' + gbp(PRICING.car.congestion) + ' Congestion Charge' : ''})` : esc(q.delivery), gbp(r.charge.delivery)) : ''}
     ${row('Total to charge', gbp(r.charge.total), 'big')}${row('Deposit to take (50%)', gbp(r.deposit))}</div>
     <p class="hint">${r.n} biscuits, so the ${TIER_NAMES[r.tier]} biscuits price is used.</p></section>
   <section class="card"><h3>What it costs you</h3><div class="total">

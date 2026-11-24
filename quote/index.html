@@ -365,10 +365,11 @@
     // Hand delivery estimate: drive there and back from Tina's kitchen
     delivery: {
       homeLat: 51.639275, homeLon: -0.054159,            // N9 7LJ
-      perHour: 14.8, perMile: 0.55, min: 5,                  // charged on the journey there (one way)
+      perHour: 14.8, perMile: 0.55, min: 5,                  // charged for both journeys: there and back
       roadFactor: 1.3,
-      // Average driving speeds: congested areas take longer, so more hours are charged
-      speeds: [{ within: 2.5, mph: 9 }, { within: 7, mph: 14 }, { within: 999, mph: 30 }],  // miles from central London
+      // Drive time: 12mph anywhere in London (within 12 miles of the centre) + 15 mins crawl in central London;
+      // outside London the first 5 miles at 12mph, the rest at 35mph
+      londonMiles: 12, londonMph: 12, centralMiles: 2.5, centralExtraMins: 15, slowMiles: 5, openMph: 35,
       congestion: 18                                       // London Congestion Charge, added when it applies
     }
   };
@@ -589,15 +590,14 @@
         spot = await where(pc); spot.typed = pc.toUpperCase().replace(/\s+/g, "");
       }
       var fromCentre = miles(spot.lat, spot.lon, 51.5074, -0.1278);
-      var mph = D.speeds.filter(function (b) { return fromCentre <= b.within; })[0].mph;
-      if (inZone(spot.lat, spot.lon)) mph = D.speeds[0].mph;
-      var road = miles(D.homeLat, D.homeLon, spot.lat, spot.lon) * D.roadFactor;
-      var mins = road / mph * 60;
-      var base = Math.max(D.min, mins / 60 * D.perHour + road * D.perMile);
+      var road = miles(D.homeLat, D.homeLon, spot.lat, spot.lon) * D.roadFactor, mins;
+      if (fromCentre > D.londonMiles) mins = Math.min(road, D.slowMiles) / D.londonMph * 60 + Math.max(0, road - D.slowMiles) / D.openMph * 60;
+      else mins = road / D.londonMph * 60 + (inZone(spot.lat, spot.lon) || fromCentre <= D.centralMiles ? D.centralExtraMins : 0);
+      var base = Math.max(D.min, 2 * (mins / 60 * D.perHour + road * D.perMile));   // there and back
       var zone = inZone(spot.lat, spot.lon), cc = zone ? charging(val("deliverDate"), val("deliverTime")) : false;
       var price = Math.round(base + (cc ? D.congestion : 0));
-      est = { price: price, miles: Math.round(road), mins: Math.max(5, Math.round(mins / 5) * 5), pc: spot.pc, cc: cc };
-      var line = "<strong>Estimated hand delivery: £" + price + (cc ? ", including the £" + D.congestion + " London Congestion Charge" : "") + "</strong><br>About " + est.miles + " miles and " + est.mins + " minutes' drive from Edmonton to " + esc(spot.pc) + ".";
+      est = { price: price, miles: Math.round(road * 2), mins: Math.max(5, Math.round(mins / 5) * 5), pc: spot.pc, cc: cc };
+      var line = "<strong>Estimated hand delivery: £" + price + (cc ? ", including the £" + D.congestion + " London Congestion Charge" : "") + "</strong><br>About " + est.mins + " minutes' drive each way between Edmonton and " + esc(spot.pc) + " (" + est.miles + " miles there and back).";
       if (zone && cc === null) line += "<br>This address is inside the London Congestion Charge zone. If delivery falls within charging hours, £" + D.congestion + " will be added. Choose a date and time above to see the full price.";
       if (zone && cc === false) line += "<br>No Congestion Charge applies at the date and time you've chosen.";
       box.innerHTML = line + "<br>This is an estimate. I'll confirm the exact price with you.";
@@ -629,7 +629,7 @@
         if (el.type === "date" && v) v = new Date(v + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
         if (v) group.rows.push([el.dataset.label, v]);
       });
-      if (s.dataset.name === "Getting your order" && est && val("receive") === "deliver") group.rows.push(["Estimated delivery price", "£" + est.price + " (about " + est.miles + " miles, " + est.mins + " mins drive" + (est.cc ? ", includes Congestion Charge" : "") + ")"]);
+      if (s.dataset.name === "Getting your order" && est && val("receive") === "deliver") group.rows.push(["Estimated delivery price", "£" + est.price + " (about " + est.miles + " miles there and back, " + est.mins + " mins each way" + (est.cc ? ", includes Congestion Charge" : "") + ")"]);
       if (group.rows.length) out.push(group);
     });
     return out;
