@@ -368,7 +368,7 @@
     key: "sb_publishable_N0yjgQiIWdJXuOllHMs8xQ_uhJxB_sU",
     bucket: "enquiry-uploads",
     email: "https://formsubmit.co/ajax/tinasbespoketreats@gmail.com",
-    orderBook: "https://tinasbespoketreats.com/o-2addf42292e3c9bed28f7597/#enquiries",
+    orderBook: "https://tinasbespoketreats.com/o-2addf42292e3c9bed28f7597/#enquiry/",
     maxFiles: 10, maxMB: 15
   };
   var PRODUCTS = {
@@ -618,6 +618,12 @@
     if (crypto.randomUUID) return crypto.randomUUID();
     return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, function (c) { return (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16); });
   }
+  // Every answer that's switched on, by question name, so the order book can fill in orders and prices
+  function rawValues() {
+    var o = {};
+    [].forEach.call(form.elements, function (el) { if (el.name && el.type !== "file" && el.name !== "website" && visible(el)) o[el.name] = el.type === "checkbox" ? el.checked : el.value.trim(); });
+    return o;
+  }
   function safe(n) { return n.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "").slice(-60) || "file"; }
 
   async function submit() {
@@ -648,7 +654,7 @@
       name: val("name"), email: val("email"), phone: val("phone"),
       product: (PRODUCTS[val("product")] || [val("product")])[0], event: val("event"),
       date_needed: val("dateNeeded") || null, budget: val("budget"),
-      answers: groups, files: uploaded
+      answers: groups, files: uploaded, raw: rawValues()
     };
     var savedDb = false, emailed = false;
     try {
@@ -659,7 +665,7 @@
     var mail = { _subject: "New quote request: " + record.product + " for " + record.name + (record.date_needed ? " (needed " + flat["Your order · Date needed"] + ")" : ""), _replyto: record.email, _template: "table", _captcha: "false" };
     Object.keys(flat).forEach(function (k) { mail[k] = flat[k]; });
     mail["Photos and files"] = all.length ? (uploaded.length + " of " + all.length + " uploaded" + (failed ? ". " + failed + " could not be saved, so ask the customer to send them on Instagram or by email." : "")) : "None";
-    mail["Saved in order book"] = savedDb ? "Yes: " + CFG.orderBook : "No (not set up yet). This email is the only copy.";
+    mail["Open in your order book"] = savedDb ? CFG.orderBook + id : "Not saved (connection problem). This email is the only copy.";
     mail["Reference"] = id.slice(0, 8).toUpperCase();
     try {
       var r2 = await fetch(CFG.email, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(mail) });

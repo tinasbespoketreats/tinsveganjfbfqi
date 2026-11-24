@@ -28,8 +28,11 @@ function dataNote() {
 
 function render() {
   const r = route();
-  document.querySelectorAll('nav a').forEach(a => a.dataset.r === (r.startsWith('order-') ? 'orders' : r) ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
-  if (r === 'new-order' || r === 'edit' || r === 'price') return; // forms are drawn once by go()
+  document.querySelectorAll('nav a').forEach(a => a.dataset.r === (r.startsWith('order-') ? 'orders' : r.startsWith('enquir') ? 'enquiries' : r) ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  navBadge();
+  if (r === 'new-order' || r === 'edit' || r === 'price' || r === 'enquiry-new') return; // forms are drawn once by go()
+  if (r === 'enquiries') return viewEnquiries();
+  if (r.startsWith('enquiry/')) { const id = r.slice(8); if (S.enqOpen === id && S.enqTyping && app.querySelector('#eMsg')) return; S.enqOpen = id; return viewEnquiry(); }
   if (r === 'calendar' && app.querySelector('#calPage')) return;
   if (r === 'orders') viewOrders(); else if (r === 'calendar') viewCalendar(); else if (r === 'money') viewMoney(); else if (r === 'order') viewOrder(); else viewHome();
 }
@@ -125,6 +128,199 @@ function viewOrder() {
     document.getElementById('delyes').onclick = async () => { try { await S.db.doc('orders/' + o.id).delete(); TB.removeFiles(o.images || []).catch(() => {}); calSync([{id: o.id, status: 'Cancelled'}]); location.hash = '#orders'; toast('Order deleted'); } catch (e) { toast("That didn't delete. Try again."); } }; };
 }
 
+/* ---------- enquiries ---------- */
+// Enquiries from the website quote form, plus ones Tina adds herself from Instagram, WhatsApp, email or phone.
+const ENQ_BUCKET = 'enquiry-uploads', FROM_ENQ = 'tina-from-enquiry';
+const ENQ_STATUS = {new: 'New', quoted: 'Quoted', changed: 'Changed', confirmed: 'Confirmed', lost: 'Lost'};
+const ENQ_OPEN = ['new', 'changed', 'quoted'];
+const ENQ_SOURCES = {website: 'Website', instagram: 'Instagram', whatsapp: 'WhatsApp', email: 'Email', phone: 'Phone', facebook: 'Facebook', 'in-person': 'In person', other: 'Other'};
+const ENQ_PRODUCTS = ['Custom biscuits', 'Branded biscuits', 'Edible logo or artwork biscuits', 'Edible image (photo) biscuits', 'Biscuit decorating activity box', 'Something else'];
+S.enquiries = []; S.enqFilter = 'Open'; S.enqQ = ''; S.enqOpen = null; S.enqMissing = false; S.enqQuoting = null; S.enqTyping = false;
+const enqSt = e => e.status && ENQ_STATUS[e.status] ? e.status : 'new';
+const ago = ts => { const d = Math.floor((Date.now() - new Date(ts)) / 86400000); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; };
+const rawOf = e => e.raw || {};
+const firstName = e => (e.name || '').trim().split(/\s+/)[0] || 'there';
+const enqAddress = r => [r.addr1, r.addr2, r.town, r.postcode && r.postcode.toUpperCase()].filter(Boolean).join(', ');
+function enqQty(e) {
+  const r = rawOf(e), key = {custom: 'c_qty', branded: 'b_qty', logo: 'l_qty', image: 'i_qty'}[r.product];
+  if (key && r[key]) return r[key];
+  if (r.product === 'box' && r.x_people && r.x_each) return String(r.x_people * r.x_each);
+  return '';
+}
+async function loadEnquiries() {
+  try { S.enquiries = (await TB.query('enquiries?select=*&order=created_at.desc')) || []; S.enqMissing = false; }
+  catch (x) { if (x.status === 401) throw x; S.enqMissing = true; }
+  S.enqLoaded = true;
+}
+async function enqSave(id, patch, msg) {
+  try {
+    await TB.patchRow('enquiries', id, {...patch, updated_at: new Date().toISOString()});
+    const e = S.enquiries.find(x => x.id === id); if (e) Object.assign(e, patch);
+    if (msg) toast(msg); navBadge(); return true;
+  } catch (x) { toast("That didn't save. Check your connection and try again."); return false; }
+}
+function navBadge() {
+  const a = document.querySelector('nav a[data-r="enquiries"]'); if (!a) return;
+  const n = S.enquiries.filter(e => enqSt(e) === 'new').length;
+  a.innerHTML = 'Enquiries' + (n ? ` <span class="nbadge" aria-label="${n} new">${n}</span>` : '');
+}
+
+function viewEnquiries() {
+  navBadge();
+  if (S.enqMissing) { app.innerHTML = `${dataNote()}<h2>Enquiries</h2><div class="notice warn"><span>Enquiries can't be loaded yet. Check your connection and reload the page.</span></div>`; return; }
+  const q = S.enqQ.toLowerCase(), rank = e => ({new: 0, changed: 1, quoted: 2}[enqSt(e)] ?? 3);
+  const list = S.enquiries
+    .filter(e => S.enqFilter === 'All' || (S.enqFilter === 'Open' ? ENQ_OPEN.includes(enqSt(e)) : ENQ_STATUS[enqSt(e)] === S.enqFilter))
+    .filter(e => !q || [e.name, e.email, e.phone, e.product, e.event, e.notes, JSON.stringify(e.answers || '')].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => rank(a) - rank(b) || (rank(a) < 3 ? (a.updated_at || a.created_at).localeCompare(b.updated_at || b.created_at) : b.created_at.localeCompare(a.created_at)));
+  const counts = Object.keys(ENQ_STATUS).map(k => [k, S.enquiries.filter(e => enqSt(e) === k).length]);
+  app.innerHTML = `${dataNote()}<div class="row between"><h2>Enquiries</h2><a class="btn" href="#enquiry-new">Quick add</a></div>
+  <p class="hint">Every enquiry in one place. Ones from your website arrive here by themselves. Use <b>Quick add</b> for Instagram, WhatsApp, email or phone enquiries.</p>
+  <div class="row"><input type="search" id="eq" aria-label="Search enquiries" placeholder="Search name, product, theme…" value="${esc(S.enqQ)}" style="flex:1 1 200px">
+  <select id="ef" aria-label="Show" style="flex:0 1 190px">${['Open', ...Object.values(ENQ_STATUS), 'All'].map(s => `<option ${s === S.enqFilter ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+  <p class="muted small">${counts.filter(([, n]) => n).map(([k, n]) => `${n} ${ENQ_STATUS[k].toLowerCase()}`).join(' · ') || 'No enquiries yet.'}</p>
+  <div class="stack" id="elist">${list.length ? list.map(e => { const qs = e.quotes || [], last = qs[qs.length - 1], st = enqSt(e);
+    return `<button class="docket" data-enq="${esc(e.id)}">${dateTab(e.date_needed)}<div style="min-width:0"><strong>${esc(e.name || 'No name')}</strong> <span class="pill st-${st}">${ENQ_STATUS[st]}</span>
+      <div class="muted small">${esc(e.product || 'Product not given')} · ${esc(ENQ_SOURCES[e.source] || 'Website')} · ${st === 'new' ? '<b>waiting ' + ago(e.created_at).replace(' ago', '') + '</b>' : 'received ' + ago(e.created_at)}</div></div>
+      <div class="sum">${last ? `<strong>${gbp(P(last.price))}</strong><br><span class="muted small">quoted</span>` : '<span class="muted small">No quote yet</span>'}</div></button>`; }).join('')
+    : `<div class="empty">${S.enquiries.length ? 'No enquiries match. Try "All".' : 'No enquiries yet. They will appear here as soon as someone fills in your quote form, or press Quick add to add one from Instagram or WhatsApp.'}</div>`}</div>`;
+  const qi = app.querySelector('#eq'); qi.oninput = () => { S.enqQ = qi.value; const at = qi.selectionStart; viewEnquiries(); const n = app.querySelector('#eq'); n.focus(); n.setSelectionRange(at, at); };
+  app.querySelector('#ef').onchange = ev => { S.enqFilter = ev.target.value; viewEnquiries(); };
+}
+
+function enqMessage(e) {
+  const qs = e.quotes || [], q = qs.filter(x => x.accepted).pop() || qs[qs.length - 1], when = e.date_needed ? ' for ' + fmt(e.date_needed, {day: 'numeric', month: 'long'}) : '';
+  const sign = '\n\nChristina\nTina\'s Bespoke Treats';
+  if (!q) return `Hi ${firstName(e)},\n\nThank you so much for your enquiry${when}! I'm looking through your details now and will send you a personalised quote very soon.${sign}`;
+  const dep = gbp(Math.round(P(q.price) / 2));
+  return `Hi ${firstName(e)},\n\nThank you for your enquiry${when}! Here is your personalised quote:\n\n${q.includes}\n\nTotal: ${gbp(P(q.price))}${P(q.delivery) ? ' (including ' + gbp(P(q.delivery)) + ' delivery)' : ''}${q.note ? '\n\n' + q.note : ''}\n\nTo secure your date, I take a 50% deposit of ${dep}, with the rest due before collection or delivery. Just let me know if you'd like to go ahead, or if you'd like to change anything and I'll update your quote.${sign}`;
+}
+const waNumber = p => { let d = String(p || '').replace(/[^\d+]/g, ''); if (d.startsWith('+')) d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2); else if (d.startsWith('0')) d = '44' + d.slice(1); return d.length >= 10 ? d : ''; };
+
+function viewEnquiry() {
+  const e = S.enquiries.find(x => x.id === S.enqOpen);
+  if (!e) { if (S.enqLoaded) location.hash = '#enquiries'; else app.innerHTML = '<p class="muted">Loading the enquiry…</p>'; return; }
+  S.enqTyping = false;
+  const r = rawOf(e), qs = e.quotes || [], st = enqSt(e), files = e.files || [];
+  const allergy = r.allergy === 'yes' ? [r.allergyDetails, r.mayContain].filter(Boolean).join(' · ') : '';
+  const insta = (e.answers || []).flatMap(g => g.rows || []).find(x => x[0] === 'Instagram');
+  const linkedOrder = e.order_id && S.orders.find(o => o.id === e.order_id);
+  app.innerHTML = `<p><a href="#enquiries">&larr; All enquiries</a></p>
+  <div class="row between"><div><h2>${esc(e.name || 'No name')}</h2><span class="muted">${esc(e.product || 'Product not given')}${e.date_needed ? ' for ' + fmt(e.date_needed) : ''} · ${esc(ENQ_SOURCES[e.source] || 'Website')}, received ${fmt(e.created_at.slice(0, 10))}</span></div>
+  <div class="row"><label class="lab" for="est">Status</label><select id="est" style="width:auto">${Object.entries(ENQ_STATUS).map(([k, v]) => `<option value="${k}" ${k === st ? 'selected' : ''}>${v}</option>`).join('')}</select></div></div>
+  ${allergy ? `<div class="notice bad"><span class="allergy">Allergies: ${esc(allergy)}</span></div>` : ''}
+  <section class="card detail">
+    ${e.email ? `<div><h3>Email</h3><a href="mailto:${esc(e.email)}">${esc(e.email)}</a></div>` : ''}${e.phone ? `<div><h3>Phone</h3><a href="tel:${esc(e.phone.replace(/\s+/g, ''))}">${esc(e.phone)}</a></div>` : ''}${insta ? `<div><h3>Instagram</h3>${esc(insta[1])}</div>` : ''}
+    ${e.event ? `<div><h3>Event</h3>${esc(e.event)}</div>` : ''}${e.budget ? `<div><h3>Budget</h3>${esc(e.budget)}</div>` : ''}${enqQty(e) ? `<div><h3>Quantity asked for</h3>${esc(enqQty(e))}</div>` : ''}
+  </section>
+
+  <section class="card"><h3>Quotes</h3>
+    ${qs.length ? `<div class="stack">${qs.map((q, i) => `<div class="quote ${q.accepted ? 'ok' : ''}"><div class="row between"><b>${fmt(q.date)} · ${gbp(P(q.price))}</b>${q.accepted ? '<span class="pill done">Accepted</span>' : `<button class="link" data-acc="${i}">Customer accepted this</button>`}</div><div>${esc(q.includes)}</div>${P(q.delivery) ? `<div class="muted small">Includes ${gbp(P(q.delivery))} delivery</div>` : ''}${q.note ? `<div class="muted small">${esc(q.note)}</div>` : ''}<button class="link small" data-delq="${i}">Remove</button></div>`).join('')}</div>`
+      : '<p class="muted">No quote yet. Work one out with Price it, or type one in below.</p>'}
+    <div class="row"><button class="primary" id="ePrice">Work out a price with Price it</button></div>
+    <details class="howto" id="qAdd"><summary>Type a quote in yourself</summary><form id="qf" class="grid" novalidate>
+      ${moneyInput('qPrice', '', 'Total price')}${moneyInput('qDel', '', 'Of which delivery', 'Leave blank if collection')}
+      <div class="f" style="grid-column:1/-1"><label for="qInc">What's included</label><textarea id="qInc" rows="3" placeholder="e.g. 30 hand-piped biscuits, individually wrapped with gold bows, collection">${esc(enqQty(e) ? enqQty(e) + ' × ' + (e.product || 'biscuits').toLowerCase() : '')}</textarea></div>
+      <div class="f" style="grid-column:1/-1"><label for="qNote">Note to the customer (optional)</label><input id="qNote" placeholder="e.g. A simpler design would bring this down to £70"></div>
+      <p class="err" id="qErr" role="alert" hidden></p><div><button class="primary" type="submit">Save quote</button></div></form></details>
+  </section>
+
+  <section class="card"><h3>Reply to ${esc(firstName(e))}</h3>
+    <p class="hint">Check the message, change anything you like, then send it the way they contacted you.</p>
+    <textarea id="eMsg" rows="11" aria-label="Message to the customer">${esc(enqMessage(e))}</textarea>
+    <div class="row">${e.email ? '<button id="eMail">Send by email</button>' : ''}${waNumber(e.phone) ? '<button id="eWa">Send on WhatsApp</button>' : ''}<button id="eCopy">Copy for Instagram</button></div>
+  </section>
+
+  <div class="row">${linkedOrder ? `<button class="primary big-btn" id="eOrderOpen">Open the order</button>` : `<button class="primary big-btn" id="eOrder">Turn into an order</button>`}</div>
+
+  <section class="card"><h3>What they asked for</h3>${(e.answers || []).map(g => `<div class="ans-group"><h4>${esc(g.title === 'Check and send' ? 'Other details' : g.title)}</h4><dl>${(g.rows || []).filter(x => !/accurate|consent|Agreed to allergy|postage notice/i.test(x[0])).map(x => `<dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd>`).join('')}</dl></div>`).join('') || '<p class="muted">No details.</p>'}</section>
+  ${files.length ? `<section class="card"><h3>Photos and files (${files.length})</h3><div class="thumbs" id="eImgs"></div></section>` : ''}
+  <section class="card"><h3>Your notes</h3><textarea id="eNotes" rows="4" placeholder="Anything to remember, e.g. called her on Tuesday, she'll confirm by Friday">${esc(e.notes || '')}</textarea><span class="hint" id="eNoteSaved"></span></section>
+  <div class="row" id="edelrow"><button class="danger" id="eDel">Delete enquiry</button></div>`;
+
+  const box = app.querySelector('#eImgs');
+  if (box) {
+    const els = files.map(f => { const w = document.createElement('div'); w.className = 'thumb'; if (/\.(pdf|svg)$/i.test(f.path)) { const a = document.createElement('a'); a.textContent = f.name || 'File'; a.target = '_blank'; a.rel = 'noopener'; w.append(a); box.append(w); return a; } const i = new Image(); i.alt = f.label || 'Customer photo'; i.onclick = () => i.src && lightbox(i.src); w.append(i); box.append(w); return i; });
+    TB.signedFrom(ENQ_BUCKET, files.map(f => f.path)).then(m => files.forEach((f, n) => { if (!m[f.path]) return; if (els[n].tagName === 'A') els[n].href = m[f.path]; else els[n].src = m[f.path]; })).catch(() => toast("Photos couldn't load. Check your connection."));
+  }
+  app.querySelectorAll('#qf input, #qf textarea, #eMsg, #eNotes').forEach(el => el.addEventListener('input', () => { S.enqTyping = true; }));
+  app.querySelector('#est').onchange = ev => enqSave(e.id, {status: ev.target.value}, 'Status changed to ' + ENQ_STATUS[ev.target.value]);
+  const notes = app.querySelector('#eNotes');
+  notes.onchange = async () => { if (await enqSave(e.id, {notes: notes.value})) app.querySelector('#eNoteSaved').textContent = 'Notes saved'; };
+  const saveQuotes = async (list, patch, msg) => { if (await enqSave(e.id, {quotes: list, ...patch}, msg)) viewEnquiry(); };
+  app.querySelectorAll('[data-acc]').forEach(b => b.onclick = () => saveQuotes(qs.map((q, i) => ({...q, accepted: i === +b.dataset.acc})), {status: 'confirmed'}, 'Marked as accepted'));
+  app.querySelectorAll('[data-delq]').forEach(b => b.onclick = () => saveQuotes(qs.filter((_, i) => i !== +b.dataset.delq), qs.length === 1 ? {status: 'new'} : {}, 'Quote removed'));
+  app.querySelector('#qf').onsubmit = ev => {
+    ev.preventDefault();
+    const price = app.querySelector('#qPrice').value, inc = app.querySelector('#qInc').value.trim(), err = app.querySelector('#qErr');
+    if (!(P(price) > 0)) { err.textContent = 'Add the total price.'; err.hidden = false; return; }
+    if (!inc) { err.textContent = "Add what's included."; err.hidden = false; return; }
+    saveQuotes([...qs, {date: today(), price: (P(price) / 100).toFixed(2), delivery: P(app.querySelector('#qDel').value) ? (P(app.querySelector('#qDel').value) / 100).toFixed(2) : '', includes: inc, note: app.querySelector('#qNote').value.trim(), qty: enqQty(e)}], {status: 'quoted'}, 'Quote saved. The reply message has been updated.');
+  };
+  app.querySelector('#ePrice').onclick = () => {
+    const style = ['logo', 'image'].includes(r.product) ? 'Logo / photo topper' : r.product === 'box' ? 'Simple fondant' : 'Hand-piped design';
+    S.pq = {...S.pq, lines: [{style, qty: enqQty(e), topper: style === 'Logo / photo topper' ? 'Toppers 12 x 7cm' : 'No toppers'}], wrapped: r.wrap === 'yes',
+      delivery: r.receive === 'deliver' ? 'Personal delivery' : r.receive === 'post' ? 'Royal Mail – small' : 'Collection', postcode: r.receive === 'deliver' ? (r.postcode || '') : '', miles: '', driveMins: '', congestion: false, shapes: '', customCutter: r.b_stamp === 'Yes'};
+    S.enqQuoting = e.id; location.hash = '#price';
+  };
+  const msg = () => app.querySelector('#eMsg').value;
+  app.querySelector('#eMail')?.addEventListener('click', () => { location.href = 'mailto:' + encodeURIComponent(e.email) + '?subject=' + encodeURIComponent("Your quote from Tina's Bespoke Treats") + '&body=' + encodeURIComponent(msg()); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
+  app.querySelector('#eWa')?.addEventListener('click', () => { window.open('https://wa.me/' + waNumber(e.phone) + '?text=' + encodeURIComponent(msg()), '_blank', 'noopener'); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
+  app.querySelector('#eCopy').onclick = async () => { try { await navigator.clipboard.writeText(msg()); toast('Message copied. Paste it into their Instagram messages.'); } catch (x) { const t = app.querySelector('#eMsg'); t.select(); toast('Select the message and copy it.'); } };
+  app.querySelector('#eOrderOpen')?.addEventListener('click', () => { S.open = e.order_id; location.hash = '#order'; });
+  app.querySelector('#eOrder')?.addEventListener('click', () => {
+    const q = qs.filter(x => x.accepted).pop() || qs[qs.length - 1];
+    const ful = {collect: 'collection', post: 'post', deliver: 'delivery'}[r.receive] || '';
+    const deliveryFee = q && P(q.delivery) ? (P(q.delivery) / 100).toFixed(2) : '';
+    const d = {
+      customerName: e.name || '', email: e.email || '', phone: e.phone || '', instagram: insta ? insta[1] : '', eventDate: e.date_needed || '',
+      biscuits: true, biscuitQty: (q && q.qty) || enqQty(e), price: q ? ((P(q.price) - P(q.delivery)) / 100).toFixed(2) : '',
+      details: [e.product, q && 'Quote: ' + q.includes, r.c_theme && 'Theme: ' + r.c_theme, r.x_theme && 'Theme: ' + r.x_theme, r.c_persText && 'Personalisation: ' + r.c_persText, r.b_details, r.l_shape && 'Shape: ' + r.l_shape + (r.l_custom ? ' (' + r.l_custom + ')' : ''), r.i_shape && 'Shape: ' + r.i_shape, r.i_pipe && 'Piping: ' + r.i_pipe, r.bpackText && 'Packaging: ' + r.bpackText, r.c_more || r.l_more || r.i_more || r.x_more, r.extra].filter(Boolean).join('\n'),
+      colourScheme: r.c_colours || r.x_pref || '', allergies: allergy, cellophane: r.wrap === 'yes', bow: r.wrap === 'yes' ? (r.bow === 'yes' ? 'with' : 'without') : '', bowColour: r.bowColour || '',
+      fulfilment: ful, deliveryFee, deliveryAddress: ful === 'post' || ful === 'delivery' ? enqAddress(r) : '',
+      deliveryDate: ful === 'delivery' ? (r.deliverDate || '') : '', collectionDate: ful === 'collection' ? (r.collectDate || '') : ''};
+    try { localStorage.setItem(DRAFT, JSON.stringify(d)); localStorage.setItem(FROM_ENQ, e.id); } catch (x) {}
+    location.hash = '#new-order'; toast('Customer and quote added. Check the details, then save the order.');
+  });
+  app.querySelector('#eDel').onclick = () => { app.querySelector('#edelrow').innerHTML = `<span>Delete this enquiry and its photos for good?</span><button class="danger" id="edelyes">Yes, delete it</button><button id="edelno">Keep it</button>`;
+    app.querySelector('#edelno').onclick = viewEnquiry;
+    app.querySelector('#edelyes').onclick = async () => { try { await TB.del('enquiries', e.id); TB.removeFrom(ENQ_BUCKET, files.map(f => f.path)).catch(() => {}); S.enquiries = S.enquiries.filter(x => x.id !== e.id); location.hash = '#enquiries'; toast('Enquiry deleted'); } catch (x) { toast("That didn't delete. Try again."); } }; };
+}
+
+function viewEnquiryNew() {
+  const pics = [];
+  app.innerHTML = `<p><a href="#enquiries">&larr; All enquiries</a></p><h2>Quick add an enquiry</h2>
+  <p class="hint">For enquiries from Instagram, WhatsApp, email or phone. Paste their message and add screenshots, so everything is in one place.</p>
+  <form id="nf" class="grid" novalidate>
+    ${field('nName', '', 'Customer name')}
+    <div class="f"><label for="nSrc">How did they get in touch?</label><select id="nSrc">${Object.entries(ENQ_SOURCES).filter(([k]) => k !== 'website').map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
+    ${field('nInsta', '', 'Instagram name (optional)')}${field('nPhone', '', 'Phone or WhatsApp number (optional)', 'tel')}${field('nEmail', '', 'Email (optional)', 'email')}
+    <div class="f"><label for="nProd">What do they want?</label><select id="nProd">${ENQ_PRODUCTS.map(p => `<option>${p}</option>`).join('')}</select></div>
+    ${field('nDate', '', 'Date they need it (optional)', 'date')}${field('nQty', '', 'How many (optional)', 'number')}
+    <div class="f" style="grid-column:1/-1"><label for="nMsg">Their message</label><textarea id="nMsg" rows="6" placeholder="Paste or type what they asked for"></textarea></div>
+    <div class="f" style="grid-column:1/-1"><span class="lbl">Screenshots or inspiration photos (optional)</span><div class="row"><label class="btn" for="nPick" tabindex="0">Add photos</label><input type="file" id="nPick" accept="image/*" multiple hidden><span class="muted small" id="nCount"></span></div><div class="thumbs" id="nThumbs"></div></div>
+    <p class="err" id="nErr" role="alert" hidden></p>
+    <div class="row"><button class="primary" type="submit" id="nSave">Save enquiry</button><a class="btn" href="#enquiries">Cancel</a></div>
+  </form>`;
+  const pick = app.querySelector('#nPick'), th = app.querySelector('#nThumbs');
+  const draw = () => { th.innerHTML = ''; pics.forEach((f, i) => { const w = document.createElement('div'); w.className = 'thumb'; const im = new Image(); im.src = URL.createObjectURL(f); im.alt = ''; const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.className = 'qx'; x.setAttribute('aria-label', 'Remove photo'); x.onclick = () => { pics.splice(i, 1); draw(); }; w.append(im, x); th.append(w); }); app.querySelector('#nCount').textContent = pics.length ? pics.length + ' added' : ''; };
+  pick.onchange = () => { [...pick.files].slice(0, 10 - pics.length).forEach(f => pics.push(f)); pick.value = ''; draw(); };
+  app.querySelector('#nf').onsubmit = async ev => {
+    ev.preventDefault();
+    const v = id => app.querySelector('#' + id).value.trim(), err = app.querySelector('#nErr'), btn = app.querySelector('#nSave');
+    if (!v('nName')) { err.textContent = "Add the customer's name."; err.hidden = false; return; }
+    if (!S.db || S.failed) { err.textContent = "This can't save right now. Check your connection."; err.hidden = false; return; }
+    btn.disabled = true; err.hidden = true;
+    const id = crypto.randomUUID(), files = [];
+    try {
+      for (let i = 0; i < pics.length; i++) { btn.textContent = `Uploading photo ${i + 1} of ${pics.length}…`; const blob = await shrink(pics[i]); const path = `${id}/${i + 1}.jpg`; await TB.uploadTo(ENQ_BUCKET, path, blob); files.push({path, name: pics[i].name, label: 'Screenshot'}); }
+      const src = v('nSrc'), rows = [['How they got in touch', ENQ_SOURCES[src]], v('nInsta') && ['Instagram', v('nInsta')], v('nQty') && ['Quantity', v('nQty')], v('nMsg') && ['Message', v('nMsg')]].filter(Boolean);
+      await TB.insertRow('enquiries', {id, source: src, status: 'new', name: v('nName'), email: v('nEmail') || null, phone: v('nPhone') || null, product: v('nProd'), date_needed: v('nDate') || null, event: '', answers: [{title: 'Their enquiry', rows}], files, raw: {product: {'Custom biscuits': 'custom', 'Branded biscuits': 'branded', 'Edible logo or artwork biscuits': 'logo', 'Edible image (photo) biscuits': 'image', 'Biscuit decorating activity box': 'box'}[v('nProd')] || '', c_qty: v('nQty'), b_qty: v('nQty'), l_qty: v('nQty'), i_qty: v('nQty')}, quotes: []});
+      await loadEnquiries(); S.enqOpen = id; toast('Enquiry saved'); location.hash = '#enquiry/' + id;
+    } catch (x) { btn.disabled = false; btn.textContent = 'Save enquiry'; err.textContent = "That didn't save. Check your connection and press Save again."; err.hidden = false; }
+  };
+}
+
 /* price an order */
 S.pq = {lines: [{style: 'Logo / photo topper', qty: '', topper: 'Toppers 12 x 7cm'}], wrapped: false, delivery: 'Collection', shapes: '', customCutter: false, postcode: '', miles: '', driveMins: '', congestion: false, petrol: PRICING.car.petrol, mpg: PRICING.car.mpg};
 const CAR = 'tina-car';
@@ -200,6 +396,7 @@ function viewPrice() {
     btn.disabled = false; btn.textContent = 'Work out miles';
   };
   f.querySelector('#qfind').onclick = findMiles;
+  if (S.enqQuoting && q.postcode && !q.miles) findMiles();
   f.querySelector('#qpc').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findMiles(); } });
   f.querySelector('#qadd').onclick = () => { q.lines.push({style: 'Simple fondant', qty: '', topper: 'No toppers'}); drawLines(); showQuote(); box.querySelector(`#qn${q.lines.length - 1}`).focus(); };
   box.addEventListener('click', e => { const x = e.target.closest('[data-x]'); if (!x) return; q.lines.splice(+x.dataset.x, 1); drawLines(); showQuote(); });
@@ -226,7 +423,7 @@ function showQuote() {
     <div class="ans-row"><span>Time it will take</span><b id="ansTime">${timeTxt(r.minutes)}</b></div>
     <p class="notice ${verdict[0]}"><span><b>${verdict[1]}</b>${r.verdict === 'min' ? '' : ` You earn about ${pounds0(r.perHour)} for every hour you work.`}</span></p>
   </section>
-  <div class="row"><button class="primary big-btn" id="qorder" type="button">Start an order with these figures</button></div>
+  <div class="row">${S.enqQuoting ? `<button class="primary big-btn" id="qsaveq" type="button">Save as a quote for ${esc((S.enquiries.find(x => x.id === S.enqQuoting) || {}).name || 'this enquiry')}</button>` : ''}<button class="${S.enqQuoting ? '' : 'primary '}big-btn" id="qorder" type="button">Start an order with these figures</button></div>
   <details class="howto"><summary>Show how this was worked out</summary><div class="stack">
   <section class="card"><h3>What the customer pays</h3><div class="total">
     ${r.lines.map(l => row(`${l.qty} × ${esc(l.style)} at ${gbp(l.price)}`, gbp(l.total))).join('')}
@@ -240,6 +437,14 @@ function showQuote() {
     ${row('Total costs', gbp(r.cost.total), 'big')}${row('Profit (money you keep)', `<span class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</span>`, 'big')}</div></section>
   </div></details>`;
   if (wasOpen) out.querySelector('details.howto').open = true;
+  out.querySelector('#qsaveq')?.addEventListener('click', async () => {
+    const id = S.enqQuoting, e = S.enquiries.find(x => x.id === id); if (!e) return;
+    const pounds = p => (p / 100).toFixed(2);
+    const how = r.drive ? 'hand delivery' + (r.drive.congestion ? ' (including the Congestion Charge)' : '') : q.delivery === 'Collection' ? 'collection from Edmonton' : q.delivery.startsWith('Royal Mail') ? 'Royal Mail Tracked 24 postage' : q.delivery.toLowerCase();
+    const includes = [r.lines.map(l => `${l.qty} × ${l.style.toLowerCase()} biscuits`).join(', ') + (q.wrapped ? ', individually wrapped with a bow' : ''), r.charge.cutters ? 'custom cutters' : '', how].filter(Boolean).join(', ');
+    const quote = {date: today(), price: pounds(r.charge.total), delivery: r.charge.delivery ? pounds(r.charge.delivery) : '', includes: includes.charAt(0).toUpperCase() + includes.slice(1), note: '', qty: String(r.n)};
+    if (await enqSave(id, {quotes: [...(e.quotes || []), quote], status: 'quoted'}, 'Quote saved. Check the reply message, then send it.')) { S.enqQuoting = null; location.hash = '#enquiry/' + id; }
+  });
   out.querySelector('#qorder').onclick = () => {
     let d = {}; try { d = JSON.parse(localStorage.getItem(DRAFT)) || {}; } catch (e) {}
     const pounds = p => (p / 100).toFixed(2), post = r.charge.delivery > 0;
@@ -404,7 +609,7 @@ function viewForm(o) {
   f.addEventListener('input', () => { const d = sync(); S.dirty = true; if (!editing) { try { localStorage.setItem(DRAFT, JSON.stringify(d)); f.querySelector('#drafted').textContent = 'Draft kept on this device'; } catch (e) {} } });
   f.addEventListener('change', sync);
   f.querySelector('#addLine').onclick = () => addLine();
-  f.querySelector('#cancel').onclick = () => { try { if (!editing) localStorage.removeItem(DRAFT); } catch (e) {} S.dirty = false; location.hash = editing ? '#order' : '#orders'; };
+  f.querySelector('#cancel').onclick = () => { try { if (!editing) { localStorage.removeItem(DRAFT); localStorage.removeItem(FROM_ENQ); } } catch (e) {} S.dirty = false; location.hash = editing ? '#order' : '#orders'; };
   f.addEventListener('submit', async ev => {
     ev.preventDefault();
     const d = read(), e = f.querySelector('#ferr'), s = sums({...o, ...d});
@@ -428,6 +633,7 @@ function viewForm(o) {
       await ref.set({...keep, ...d, images: [...imgs.kept, ...imgs.pending.map(i => i.path)], customerName: d.customerName.trim(), status: o.status || 'Confirmed', createdAt: o.createdAt || now, updatedAt: now});
       try { localStorage.removeItem(DRAFT); } catch (x) {}
       TB.removeFiles(imgs.removed).catch(() => {});
+      try { const fe = !editing && localStorage.getItem(FROM_ENQ); if (fe) { localStorage.removeItem(FROM_ENQ); enqSave(fe, {order_id: ref.id, status: 'confirmed'}); } } catch (x) {}
       S.dirty = false; S.open = ref.id; toast('Order saved'); location.hash = '#order'; calSync([S.orders.find(x => x.id === ref.id)]);
     } catch (x) { btn.disabled = false; fail("That didn't save. Your entries are still here, so check your connection and press Save again."); }
   });
@@ -586,8 +792,9 @@ function viewCalendar() {
 
 /* events */
 app.addEventListener('click', async e => {
-  const t = e.target.closest('[data-open],[data-ym],[data-delex],#clearEx'); if (!t) return;
+  const t = e.target.closest('[data-open],[data-enq],[data-ym],[data-delex],#clearEx'); if (!t) return;
   if (t.dataset.open) { S.open = t.dataset.open; location.hash = '#order'; }
+  if (t.dataset.enq) location.hash = '#enquiry/' + t.dataset.enq;
   else if (t.dataset.ym) { S.ym = t.dataset.ym; viewMoney(); }
   else if (t.dataset.delex) { try { await S.db.doc('expenses/' + t.dataset.delex).delete(); toast('Expense removed'); } catch (x) { toast("That didn't remove. Try again."); } }
   else if (t.id === 'clearEx') { t.disabled = true; try { for (const o of S.orders.filter(x => x.example)) await S.db.doc('orders/' + o.id).delete(); for (const x of S.expenses.filter(x => x.example)) await S.db.doc('expenses/' + x.id).delete(); toast('Examples removed'); } catch (x) { t.disabled = false; toast("That didn't finish. Try again."); } }
@@ -599,7 +806,10 @@ app.addEventListener('change', e => { if (e.target.id === 'fs') { S.status = e.t
 function go() {
   const r = route();
   if (r === 'new-order') { let d = {}; try { d = JSON.parse(localStorage.getItem(DRAFT)) || {}; } catch (e) {} render(); viewForm(d); window.scrollTo(0, 0); return; }
+  if (r !== 'price') S.enqQuoting = null;
   if (r === 'price') { render(); viewPrice(); window.scrollTo(0, 0); return; }
+  if (r === 'enquiry-new') { render(); viewEnquiryNew(); window.scrollTo(0, 0); return; }
+  if (r.startsWith('enquiry/')) S.enqTyping = false;
   if (r === 'calendar') { render(); window.scrollTo(0, 0); return; }
   if (r === 'edit') { const o = S.orders.find(x => x.id === S.open); if (!o) { location.hash = '#orders'; return; } render(); viewForm(JSON.parse(JSON.stringify(o))); window.scrollTo(0, 0); return; }
   S.dirty = false; render(); window.scrollTo(0, 0);
@@ -626,6 +836,7 @@ async function load() {
     const cfg = e.find(r => r.id === CAL_ID);
     S.cal = cfg && cfg.data && cfg.data.url && cfg.data.secret ? cfg.data : null;
     S.orders = o.map(r => ({...r.data, id: r.id})); S.expenses = e.filter(r => r.id !== CAL_ID).map(r => ({...r.data, id: r.id})); S.failed = false;
+    await loadEnquiries();
   } catch (x) {
     if (x.status === 401) { await TB.signOut(); S.orders = []; S.expenses = []; S.db = null; showShell(false); return; }
     S.failed = true;

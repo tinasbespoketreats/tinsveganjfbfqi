@@ -40,5 +40,12 @@ window.TB = (() => {
     list: table => rest(table + '?select=id,data'),
     put: (table, id, data) => rest(table, {method: 'POST', headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({id, data, updated_at: new Date().toISOString()})}),
     del: (table, id) => rest(table + '?id=eq.' + encodeURIComponent(id), {method: 'DELETE'}),
+    // Plain tables (enquiries) and other storage buckets
+    query: path => rest(path),
+    insertRow: (table, row) => rest(table, {method: 'POST', headers: {Prefer: 'return=minimal'}, body: JSON.stringify(row)}),
+    patchRow: (table, id, patch) => rest(table + '?id=eq.' + encodeURIComponent(id), {method: 'PATCH', headers: {Prefer: 'return=minimal'}, body: JSON.stringify(patch)}),
+    uploadTo: (bucket, path, blob) => call('/storage/v1/object/' + bucket + '/' + path, {method: 'POST', headers: {'Content-Type': blob.type || 'application/octet-stream'}, body: blob}),
+    signedFrom: async (bucket, paths) => { const r = await call('/storage/v1/object/sign/' + bucket, {method: 'POST', body: JSON.stringify({expiresIn: 3600, paths})}); return Object.fromEntries(r.filter(x => x.signedURL).map(x => [x.path, URL_ + '/storage/v1' + x.signedURL])); },
+    removeFrom: async (bucket, paths) => paths.length ? call('/storage/v1/object/' + bucket, {method: 'DELETE', body: JSON.stringify({prefixes: paths})}) : null,
   };
 })();
