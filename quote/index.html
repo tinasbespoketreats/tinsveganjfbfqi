@@ -138,6 +138,7 @@
             <option>Not sure, please talk me through it</option>
           </select></div>
         <p class="note">I'll go through all allergy and dietary details with you and confirm them before your order is accepted.</p>
+        <label class="tick f"><input type="checkbox" id="allergyOk" name="allergyOk" required data-label="Agreed to allergy details being used"> I'm happy for these allergy details to be used only to prepare this order safely.</label>
       </div>
     </div>
   </fieldset>
@@ -323,15 +324,15 @@
       <div class="f"><label for="heard">How did you find me? <span class="req">*</span></label>
         <select id="heard" name="heard" required data-label="How they found Tina's Bespoke Treats"><option value="">Please choose</option>
           <option>Google search</option><option>Instagram</option><option>An advert</option><option>Facebook</option><option>TikTok</option>
-          <option>Word of mouth or a recommendation</option><option>I've ordered before</option><option>An event or market</option><option value="Other">Other</option></select></div>
+          <option>Word of mouth or a recommendation</option><option>I've ordered before</option><option>A leaflet</option><option>An event or market</option><option value="Other">Other</option></select></div>
       <div class="cond f" data-if="heard=Other" hidden><label for="heardOther">Where did you hear about me? <span class="req">*</span></label><input id="heardOther" name="heardOther" required data-label="Found us via (other)"></div>
       <div class="f"><label for="extra">Anything else you'd like me to know? <span class="opt">(optional)</span></label><textarea id="extra" name="extra" data-label="Anything else"></textarea></div>
-      <label class="tick f"><input type="checkbox" id="accurate" name="accurate" required data-label="Details accurate"> The information I've given is accurate.</label>
-      <label class="tick f"><input type="checkbox" id="consent" name="consent" required data-label="Privacy consent"> <span>I agree to Tina's Bespoke Treats using my details to reply to this enquiry and prepare my quote. My details are stored securely, never shared or sold, and I can ask for them to be deleted at any time.</span></label>
     </div>
   </fieldset>
 
   <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
+
+  <p class="hint" id="privacyLine" hidden style="margin:22px 0 0">Your details are only used to reply to your enquiry and prepare your quote. They're stored securely, never shared or sold, and you can ask me to delete them at any time.</p>
 
   <div class="nav">
     <button type="button" class="back" id="back" hidden>Back</button>
@@ -426,6 +427,7 @@
     var last = cur === act.length - 1;
     $("next").textContent = last ? "REQUEST MY PERSONALISED QUOTE ✨" : "Next";
     $("next").classList.toggle("send", last);
+    $("privacyLine").hidden = !last;
     $("stepErr").hidden = true;
     if (last) buildReview();
     form.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
