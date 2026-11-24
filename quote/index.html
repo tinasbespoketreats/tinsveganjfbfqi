@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Request a Quote | Personalised &amp; Branded Biscuits | Tina's Bespoke Treats</title>
+<meta name="description" content="Request a personalised quote for custom biscuits, branded and edible logo biscuits, edible photo biscuits and biscuit decorating boxes. Handmade in Edmonton, North London, collected or posted UK-wide.">
+<!-- TEST PAGE: remove noindex when Tina approves the form -->
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#FCF5EF">
+<link rel="icon" type="image/png" href="/assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Allura&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&display=swap">
+<link rel="stylesheet" href="/styles.css?v=2">
+<style>
+  .topnav{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:12px;font-weight:800;font-size:16px}
+  .topnav a{display:inline-flex;align-items:center;min-height:44px;text-decoration:none}
+  .topnav span{display:flex;align-items:center;gap:18px}
+  .qhero{text-align:center;display:grid;justify-items:center;gap:10px;padding-block:clamp(16px,4vw,36px) clamp(20px,4vw,32px)}
+  .qhero img{width:min(190px,46vw);height:auto}
+  .qhero h1{font:400 clamp(32px,6vw,50px)/1.12 var(--display);color:var(--purple);text-wrap:balance}
+
+  .qcard{max-width:720px;margin:0 auto;background:#fff;border:1px solid var(--lilac-soft);border-radius:22px;box-shadow:0 18px 50px -28px rgba(95,68,137,.45);padding:clamp(20px,4.5vw,44px)}
+  .prog{margin-bottom:26px}
+  .prog-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px}
+    .prog-top span{font-size:14px;font-weight:800;color:var(--muted);white-space:nowrap}
+  .dots{display:flex;gap:6px}
+  .dots i{flex:1;height:6px;border-radius:99px;background:var(--lilac-soft);transition:background .3s}
+  .dots i.on{background:var(--lilac)}
+  .dots i.now{background:var(--purple)}
+
+  .step{border:0;margin:0;padding:0;min-width:0}
+  .step[hidden]{display:none}
+  .step>legend{padding:0;margin-bottom:6px;font:400 clamp(26px,5vw,34px)/1.15 var(--display);color:var(--purple)}
+  .step .intro{color:var(--muted);margin-bottom:22px}
+  .fields{display:grid;gap:22px}
+  .f label,.f .lbl{display:block;font-weight:800;margin-bottom:6px;line-height:1.35}
+  .f .req{color:var(--purple)}
+  .f .opt{font-weight:600;color:var(--muted);font-size:15px}
+  .hint{font-size:15px;line-height:1.5;color:var(--muted);margin:-2px 0 8px}
+  .f input:not([type=checkbox]):not([type=file]),.f select,.f textarea{width:100%;min-height:52px;padding:12px 16px;font:600 17px/1.4 var(--body);color:var(--ink);background:var(--cream);border:1.5px solid #D9CCE6;border-radius:14px;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none;appearance:none}
+  .f select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%235F4489' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;padding-right:44px}
+  .f textarea{min-height:120px;resize:vertical}
+  .f input:focus,.f select:focus,.f textarea:focus{outline:0;border-color:var(--purple);box-shadow:0 0 0 4px rgba(174,152,194,.35)}
+  .f.bad input,.f.bad select,.f.bad textarea,.f.bad .drop{border-color:#B0404F}
+  .err{color:#9B2D3E;font-weight:700;font-size:15px;margin-top:6px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .note{background:var(--blush);border-left:4px solid var(--lilac);border-radius:12px;padding:14px 16px;font-size:15.5px;line-height:1.55;color:var(--ink)}
+  .note p+p{margin-top:8px}
+  .note.warn{border-left-color:#C98AA0;background:#FBEFF2}
+  .cond[hidden]{display:none}
+  .cond{animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+  .drop{border:2px dashed #CDBBDD;border-radius:16px;background:var(--cream);padding:20px;text-align:center;cursor:pointer;transition:background .2s,border-color .2s}
+  .drop:hover,.drop.over{background:var(--lilac-soft);border-color:var(--lilac)}
+  .drop strong{color:var(--purple)}
+  .drop small{display:block;color:var(--muted);font-size:14px;margin-top:4px}
+  .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-top:12px}
+  .thumbs figure{margin:0;position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;background:var(--lilac-soft);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--muted);text-align:center;padding:4px}
+  .thumbs img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+  .thumbs button{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(51,38,74,.8);color:#fff;font-size:16px;line-height:1;cursor:pointer}
+
+  .tick{display:flex;gap:12px;align-items:flex-start;font-weight:600;line-height:1.5}
+  .tick input{width:22px;height:22px;margin-top:2px;flex:none;accent-color:var(--purple)}
+  .nav{display:flex;justify-content:space-between;gap:12px;margin-top:32px;padding-top:22px;border-top:1px solid var(--lilac-soft)}
+  .nav button{font:800 17px/1 var(--body);min-height:54px;padding:0 26px;border-radius:999px;cursor:pointer;border:2px solid var(--purple);transition:background .2s,color .2s}
+  .nav .back{background:#fff;color:var(--purple)}
+  .nav .back:hover{background:var(--lilac-soft)}
+  .nav .next{background:var(--purple);color:#fff;margin-left:auto}
+  .nav .next:hover{background:var(--ink);border-color:var(--ink)}
+  .nav button:disabled{opacity:.6;cursor:wait}
+  .nav .send{letter-spacing:.04em}
+  .review{display:grid;gap:0;border:1px solid var(--lilac-soft);border-radius:14px;overflow:hidden;font-size:15.5px}
+  .review div{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:12px;padding:10px 14px;border-top:1px solid var(--lilac-soft)}
+  .review div:first-child{border-top:0}
+  .review dt{font-weight:800;color:var(--muted)}
+  .review dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+  .review h4{grid-column:1/-1;font:400 20px/1.2 var(--display);color:var(--purple);margin:0}
+  .done{max-width:620px;margin:0 auto;text-align:center;background:#fff;border-radius:22px;padding:clamp(28px,6vw,48px);box-shadow:0 18px 50px -28px rgba(95,68,137,.45)}
+  .done h2{font-size:clamp(30px,6vw,42px)}
+  .done p{margin-top:12px;color:var(--muted)}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  @media (max-width:560px){.row2{grid-template-columns:1fr}.review div{grid-template-columns:1fr;gap:2px}.nav button{padding:0 20px}}
+  @media (prefers-reduced-motion:reduce){.cond{animation:none}.dots i{transition:none}}
+</style>
+</head>
+<body>
+<nav class="wrap topnav" aria-label="Site">
+  <a href="/">&larr; Home</a>
+  <span><a href="/contact/">Contact me</a><a href="https://www.instagram.com/tinasbespoketreats/" aria-label="Instagram @tinasbespoketreats"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="display:block"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg></a></span>
+</nav>
+
+<header class="wrap qhero">
+  <a href="/"><img src="/assets/logo.png" alt="Tina's Bespoke Treats" width="1400" height="862"></a>
+  <p class="eyebrow" style="margin:0">request a quote</p>
+  <h1>Let's create something special</h1>
+  <p class="lead" style="margin:0 auto">Tell me about your order and I'll get back to you with a personalised quote. The more detail you give, the better I can bring your vision to life.</p>
+</header>
+
+<main class="band tint" style="padding-top:clamp(28px,5vw,48px)">
+<div class="wrap">
+<form class="qcard" id="q" novalidate>
+  <div class="prog" aria-live="polite">
+    <div class="prog-top"><span id="progCount">Step 1 of 6</span><span id="progName">Next: Your order</span></div>
+    <div class="dots" id="dots" aria-hidden="true"></div>
+  </div>
+  <p class="err" id="stepErr" role="alert" hidden></p>
+
+  <!-- STEP 1 -->
+  <fieldset class="step" data-name="About you">
+    <legend>About you</legend>
+    <p class="intro">First, a few details so I can get back to you.</p>
+    <div class="fields">
+      <div class="f"><label for="name">Your name <span class="req">*</span></label><input id="name" name="name" autocomplete="name" required data-label="Name"></div>
+      <div class="row2">
+        <div class="f"><label for="email">Email address <span class="req">*</span></label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" required data-label="Email"></div>
+        <div class="f"><label for="phone">Phone number <span class="req">*</span></label><input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required data-label="Phone"></div>
+      </div>
+      <div class="f"><label for="event">What is the event? <span class="req">*</span></label><input id="event" name="event" required placeholder="e.g. 30th birthday, baby shower, product launch" data-label="Event"></div>
+      <div class="f">
+        <label for="allergy">Allergies, intolerances or dietary requirements <span class="req">*</span></label>
+        <p class="hint">My biscuits are made without nuts, egg or dairy. However, some decorative edible ingredients (such as icing, fondant and sprinkles) may contain nuts, tree nuts, milk, soya, egg or other allergens.</p>
+        <select id="allergy" name="allergy" required data-label="Allergies or dietary requirements">
+          <option value="">Please choose</option>
+          <option value="none">No allergies or dietary requirements</option>
+          <option value="yes">Yes, I'll give details</option>
+        </select>
+      </div>
+      <div class="cond fields" data-if="allergy=yes" hidden>
+        <div class="f"><label for="allergyDetails">Please tell me exactly what they are <span class="req">*</span></label><textarea id="allergyDetails" name="allergyDetails" required placeholder="e.g. one guest has a severe peanut allergy; two guests are gluten-free" data-label="Allergy details"></textarea></div>
+        <div class="f"><label for="mayContain">Are "may contain" allergen warnings okay? <span class="req">*</span></label>
+          <select id="mayContain" name="mayContain" required data-label="'May contain' warnings okay?">
+            <option value="">Please choose</option>
+            <option>Yes, "may contain" warnings are okay</option>
+            <option>No, "may contain" warnings are not okay</option>
+            <option>Not sure, please talk me through it</option>
+          </select></div>
+        <p class="note">I'll go through all allergy and dietary details with you and confirm them before your order is accepted.</p>
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- STEP 2 -->
+  <fieldset class="step" data-name="Your order" hidden>
+    <legend>Your order</legend>
+    <p class="intro">What would you like, and when do you need it?</p>
+    <div class="fields">
+      <div class="f"><label for="product">What are you looking to order? <span class="req">*</span></label>
+        <select id="product" name="product" required data-label="Product">
+          <option value="">Please choose</option>
+          <option value="custom">Custom biscuits</option>
+          <option value="branded">Branded biscuits</option>
+          <option value="logo">Edible logo or artwork biscuits</option>
+          <option value="image">Edible image (photo) biscuits</option>
+          <option value="box">Biscuit decorating activity box</option>
+        </select>
+        <p class="hint" id="productHint" style="margin:8px 0 0"></p>
+      </div>
+      <div class="f"><label for="dateNeeded">Date you need your order <span class="req">*</span></label><input id="dateNeeded" name="dateNeeded" type="date" required data-label="Date needed"></div>
+      <div class="f"><label for="budget">What is your budget? <span class="opt">(optional)</span></label>
+        <p class="hint">This helps me suggest designs that work for you. It's fine to say you're not sure yet.</p>
+        <input id="budget" name="budget" placeholder="e.g. £80, or not sure yet" data-label="Budget"></div>
+    </div>
+  </fieldset>
+
+  <!-- STEP 3: product details -->
+  <fieldset class="step" data-name="Your design" hidden>
+    <legend id="designTitle">Your design</legend>
+
+    <!-- Custom biscuits -->
+    <div class="cond fields" data-if="product=custom" hidden>
+      <p class="intro" style="margin:0">Tell me about your custom biscuits.</p>
+      <div class="f"><label for="c_qty">How many biscuits? <span class="req">*</span></label><p class="hint">Minimum order: 10 biscuits.</p><input id="c_qty" name="c_qty" type="number" inputmode="numeric" min="10" step="1" required data-label="Quantity"></div>
+      <div class="f"><label for="c_theme">What is the theme? <span class="req">*</span></label><input id="c_theme" name="c_theme" required placeholder="e.g. pastel florals, football, Bridgerton" data-label="Theme"></div>
+      <div class="f" data-upload="c_photos" data-required="1" data-label="Inspiration photos"><span class="lbl">Upload photos of styles or designs you like <span class="req">*</span></span><p class="hint">I'll use these as inspiration for your biscuits. Screenshots from Instagram or Pinterest are perfect.</p></div>
+      <div class="f"><label for="c_colours">Colours <span class="opt">(optional)</span></label><input id="c_colours" name="c_colours" placeholder="e.g. gold, blush pink and white" data-label="Colours"></div>
+      <div class="f"><label for="c_pers">Would you like any personalisation? <span class="req">*</span></label>
+        <select id="c_pers" name="c_pers" required data-label="Personalisation"><option value="">Please choose</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+      <div class="cond f" data-if="c_pers=yes" hidden><label for="c_persText">What names, messages or numbers would you like? <span class="req">*</span></label><textarea id="c_persText" name="c_persText" required placeholder="e.g. &quot;Happy 30th Sophie&quot;, the number 30, initials S &amp; J" data-label="Personalisation details"></textarea></div>
+      <div class="f"><label for="c_more">Tell me more <span class="opt">(optional)</span></label><textarea id="c_more" name="c_more" placeholder="Any specifics about your order: shapes, sizes, wording, ideas…" data-label="More details"></textarea></div>
+    </div>
+
+    <!-- Branded biscuits -->
+    <div class="cond fields" data-if="product=branded" hidden>
+      <p class="intro" style="margin:0">Perfect for showcases, brand activations, product launches, company anniversaries, client gifting, conferences, PR mailers and staff celebrations.</p>
+      <div class="f"><label for="b_company">Company or brand name <span class="opt">(optional)</span></label><input id="b_company" name="b_company" autocomplete="organization" data-label="Company or brand"></div>
+      <div class="f"><label for="b_qty">How many biscuits? <span class="req">*</span></label><p class="hint">Minimum order: 10 biscuits.</p><input id="b_qty" name="b_qty" type="number" inputmode="numeric" min="10" step="1" required data-label="Quantity"></div>
+      <div class="f"><label for="b_stamp">Will this order need a custom stamp or cutter shape? <span class="req">*</span></label><p class="hint">For example, a biscuit cut in the shape of your logo, or your logo stamped into the biscuit.</p>
+        <select id="b_stamp" name="b_stamp" required data-label="Custom stamp or cutter"><option value="">Please choose</option><option>Yes</option><option>No</option><option>Not sure, please advise</option></select></div>
+      <div class="f"><label for="b_details">What are you looking for? <span class="req">*</span></label><p class="hint">Please include as much detail as you can: what you or your client are looking for, the shapes, rough sizes of each biscuit, and how many of each design.</p><textarea id="b_details" name="b_details" required style="min-height:150px" data-label="What they're looking for"></textarea></div>
+      <div class="f" data-upload="b_files" data-required="1" data-label="Logo and artwork"><span class="lbl">Upload your logo and any artwork <span class="req">*</span></span><p class="hint">High-quality files work best (PNG, JPG, PDF or SVG).</p></div>
+    </div>
+
+    <!-- Edible logo / artwork -->
+    <div class="cond fields" data-if="product=logo" hidden>
+      <p class="intro" style="margin:0">Your logo or artwork is printed on edible sugar paper using high-quality printing, then finished by hand on the biscuit.</p>
+      <div class="f"><label for="l_company">Company or brand name <span class="opt">(optional)</span></label><input id="l_company" name="l_company" autocomplete="organization" data-label="Company or brand"></div>
+      <div class="f"><label for="l_qty">How many biscuits? <span class="req">*</span></label><p class="hint">Minimum order: 10 biscuits.</p><input id="l_qty" name="l_qty" type="number" inputmode="numeric" min="10" step="1" required data-label="Quantity"></div>
+      <div class="f"><label for="l_shape">Biscuit shape <span class="req">*</span></label>
+        <select id="l_shape" name="l_shape" required data-label="Shape"><option value="">Please choose</option><option>Circle</option><option>Square</option><option value="Custom shape">Custom shape</option></select></div>
+      <div class="cond f" data-if="l_shape=Custom shape" hidden><label for="l_custom">What shape and size would you like? <span class="req">*</span></label><input id="l_custom" name="l_custom" required placeholder="e.g. the outline of our logo, about 8cm wide" data-label="Custom shape and size"></div>
+      <div class="f" data-upload="l_files" data-required="1" data-label="Logo and artwork"><span class="lbl">Upload your logo and artwork <span class="req">*</span></span><p class="hint">High-quality, clear files print best (PNG, JPG, PDF or SVG).</p></div>
+      <div class="f"><label for="l_more">Tell me more <span class="opt">(optional)</span></label><textarea id="l_more" name="l_more" data-label="More details"></textarea></div>
+    </div>
+
+    <!-- Edible image -->
+    <div class="cond fields" data-if="product=image" hidden>
+      <p class="intro" style="margin:0">Fantastic for birthdays, anniversaries, baby showers (with a baby scan photo), gender reveals, graduations, hen parties, retirements, proud pet owners and anyone with main character energy!</p>
+      <div class="f"><label for="i_qty">How many biscuits? <span class="req">*</span></label><p class="hint">Minimum order: 10 biscuits.</p><input id="i_qty" name="i_qty" type="number" inputmode="numeric" min="10" step="1" required data-label="Quantity"></div>
+      <div class="f" data-upload="i_files" data-required="1" data-label="Photos"><span class="lbl">Upload your photos <span class="req">*</span></span><p class="hint">Clear, bright, high-quality photos print best. Please don't send blurry or heavily zoomed images.</p></div>
+      <div class="f"><label for="i_shape">Choose your shape <span class="req">*</span></label>
+        <select id="i_shape" name="i_shape" required data-label="Shape"><option value="">Please choose</option><option>Heart</option><option>Square</option><option>Circle</option></select></div>
+      <div class="f"><label for="i_pipe">Would you like royal icing piping around the photo? <span class="req">*</span></label>
+        <select id="i_pipe" name="i_pipe" required data-label="Royal icing piping"><option value="">Please choose</option><option>Yes please</option><option>Not necessary</option></select></div>
+      <div class="f"><label for="i_more">Tell me more <span class="opt">(optional)</span></label><textarea id="i_more" name="i_more" placeholder="e.g. piping colours, names to add, which photo goes on how many biscuits" data-label="More details"></textarea></div>
+    </div>
+
+    <!-- Activity box -->
+    <div class="cond fields" data-if="product=box" hidden>
+      <p class="intro" style="margin:0">A fun activity for parties, playdates, hen dos and team days. Each box comes with piping bags of royal icing.</p>
+      <div class="f"><label for="x_for">Who is the box for? <span class="req">*</span></label><input id="x_for" name="x_for" required placeholder="e.g. a 6th birthday party, a hen party, a team-building afternoon" data-label="Who it's for"></div>
+      <div class="f"><label for="x_theme">Theme for the box <span class="req">*</span></label><input id="x_theme" name="x_theme" required placeholder="e.g. animals, princess, love, Christmas, birthday" data-label="Theme"></div>
+      <div class="f"><label for="x_aud">Is it for children, adults or both? <span class="req">*</span></label>
+        <select id="x_aud" name="x_aud" required data-label="Children or adults"><option value="">Please choose</option><option>Children</option><option>Adults</option><option>Both</option></select></div>
+      <div class="row2">
+        <div class="f"><label for="x_people">How many people? <span class="req">*</span></label><input id="x_people" name="x_people" type="number" inputmode="numeric" min="1" step="1" required data-label="Number of people"></div>
+        <div class="f"><label for="x_each">Biscuits per person <span class="req">*</span></label><input id="x_each" name="x_each" type="number" inputmode="numeric" min="1" step="1" required data-label="Biscuits per person"></div>
+      </div>
+      <div class="f"><label for="x_pack">How would you like the biscuits packed? <span class="req">*</span></label>
+        <select id="x_pack" name="x_pack" required data-label="Box packaging"><option value="">Please choose</option>
+          <option>One box for everyone to share</option>
+          <option>An individual box for each person</option>
+          <option>Each person's biscuits wrapped in cellophane with a bow, ready to take home</option>
+          <option>No preference, everyone will share</option></select></div>
+      <div class="row2">
+        <div class="f"><label for="x_colours">How many icing colours? <span class="req">*</span></label><input id="x_colours" name="x_colours" type="number" inputmode="numeric" min="1" step="1" required data-label="Number of icing colours"></div>
+        <div class="f"><label for="x_pref">Preferred icing colours <span class="opt">(optional)</span></label><input id="x_pref" name="x_pref" placeholder="e.g. pink, lilac, white" data-label="Preferred icing colours"></div>
+      </div>
+      <div class="f"><label for="x_spr">Would you like small packets of sprinkles? <span class="req">*</span></label>
+        <select id="x_spr" name="x_spr" required data-label="Sprinkles"><option value="">Please choose</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+      <div class="cond f" data-if="x_spr=yes" hidden><label for="x_sprQty">How many packets of sprinkles? <span class="req">*</span></label><input id="x_sprQty" name="x_sprQty" type="number" inputmode="numeric" min="1" step="1" required data-label="Sprinkle packets"></div>
+      <div class="f"><label for="x_more">Tell me more <span class="opt">(optional)</span></label><textarea id="x_more" name="x_more" data-label="More details"></textarea></div>
+    </div>
+  </fieldset>
+
+  <!-- STEP 4: packaging (not for activity boxes) -->
+  <fieldset class="step" data-name="Packaging" data-skip="product=box" hidden>
+    <legend>Packaging</legend>
+    <p class="intro">How would you like your biscuits presented?</p>
+    <div class="fields">
+      <div class="f"><label for="wrap">Would you like each biscuit individually wrapped in cellophane? <span class="req">*</span></label><p class="hint">Great for favours and gifts.</p>
+        <select id="wrap" name="wrap" required data-label="Individually wrapped"><option value="">Please choose</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+      <div class="cond f" data-if="wrap=yes" hidden><label for="bow">Would you like the wrapping to include a bow? <span class="req">*</span></label>
+        <select id="bow" name="bow" required data-label="Bow"><option value="">Please choose</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+      <div class="cond f" data-if="bow=yes" hidden><label for="bowColour">Preferred bow colour <span class="req">*</span></label><input id="bowColour" name="bowColour" required placeholder="e.g. gold, blush pink" data-label="Bow colour"></div>
+      <div class="f"><label for="bpack">Would you like personalised or branded packaging? <span class="req">*</span></label><p class="hint">For example printed labels, tags, stickers or boxes with your name or logo.</p>
+        <select id="bpack" name="bpack" required data-label="Personalised or branded packaging"><option value="">Please choose</option><option value="no">No</option><option value="yes">Yes</option></select></div>
+      <div class="cond f" data-if="bpack=yes" hidden><label for="bpackText">Please describe what you'd like <span class="req">*</span></label><textarea id="bpackText" name="bpackText" required data-label="Packaging details"></textarea></div>
+    </div>
+  </fieldset>
+
+  <!-- STEP 5: getting your order -->
+  <fieldset class="step" data-name="Getting your order" hidden>
+    <legend>Getting your order</legend>
+    <p class="intro">How would you like to receive your order?</p>
+    <div class="fields">
+      <div class="f"><label for="receive">Collection, postage or hand delivery? <span class="req">*</span></label>
+        <select id="receive" name="receive" required data-label="How they'll receive it"><option value="">Please choose</option>
+          <option value="collect">Collection from Edmonton N9, London (FREE)</option>
+          <option value="post">Postage (Royal Mail Tracked 24)</option>
+          <option value="deliver">Hand delivery</option></select></div>
+
+      <div class="cond fields" data-if="receive=collect" hidden>
+        <p class="note">Collection is from Edmonton, North London (N9). You'll receive the full address once payment for your order has been processed.</p>
+        <div class="row2">
+          <div class="f"><label for="collectDate">Collection date <span class="req">*</span></label><input id="collectDate" name="collectDate" type="date" required data-label="Collection date"></div>
+          <div class="f"><label for="collectTime">Collection time <span class="req">*</span></label>
+            <select id="collectTime" name="collectTime" required data-label="Collection time"><option value="">Please choose</option><option>Morning (9am to 12pm)</option><option>Afternoon (12pm to 5pm)</option><option>Evening (5pm to 8pm)</option></select></div>
+        </div>
+      </div>
+
+      <div class="cond fields" data-if="receive=post" hidden>
+        <div class="note">
+          <p>Orders are sent by <strong>Royal Mail Tracked 24</strong> and posted 4 to 5 days before your event date, so they arrive in plenty of time.</p>
+          <p>All posted biscuits are heat-sealed in cellophane to keep them fresh (up to 2 weeks while sealed) and carefully packaged to protect them.</p>
+        </div>
+        <div class="note warn">
+          <p><strong>Please note:</strong> posting fully detailed bespoke biscuits always carries some risk. I haven't had any complaints so far, but minor scuffs to fine details can happen in transit. If anything arrives damaged, please send me photos as soon as it arrives and I'll arrange a replacement or refund for the affected biscuits.</p>
+        </div>
+        <label class="tick f" data-label="Postage notice"><input type="checkbox" id="postOk" name="postOk" required data-label="Read the postage notice"> I've read and understood the postage notice.</label>
+      </div>
+
+      <div class="cond fields" data-if="receive=deliver" hidden>
+        <p class="note">There's a delivery charge depending on your location (from £5). I'll be in touch to confirm the delivery time and price.</p>
+        <div class="f"><label for="deliverDate">Delivery date <span class="req">*</span></label><input id="deliverDate" name="deliverDate" type="date" required data-label="Delivery date"></div>
+      </div>
+
+      <div class="cond fields" data-if="receive=post|deliver" hidden>
+        <div class="f"><label for="addr1">Address line 1 <span class="req">*</span></label><input id="addr1" name="addr1" autocomplete="address-line1" required data-label="Address line 1"></div>
+        <div class="f"><label for="addr2">Address line 2 <span class="opt">(optional)</span></label><input id="addr2" name="addr2" autocomplete="address-line2" data-label="Address line 2"></div>
+        <div class="row2">
+          <div class="f"><label for="town">Town or city <span class="req">*</span></label><input id="town" name="town" autocomplete="address-level2" required data-label="Town or city"></div>
+          <div class="f"><label for="postcode">Postcode <span class="req">*</span></label><input id="postcode" name="postcode" autocomplete="postal-code" autocapitalize="characters" required data-label="Postcode"></div>
+        </div>
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- STEP 6: check & send -->
+  <fieldset class="step" data-name="Check and send" hidden>
+    <legend>Almost done</legend>
+    <p class="intro">Please check your answers. You can go back to change anything.</p>
+    <div class="fields">
+      <dl class="review" id="review"></dl>
+      <div class="f"><label for="extra">Anything else you'd like me to know? <span class="opt">(optional)</span></label><textarea id="extra" name="extra" data-label="Anything else"></textarea></div>
+      <label class="tick f"><input type="checkbox" id="accurate" name="accurate" required data-label="Details accurate"> The information I've given is accurate.</label>
+      <label class="tick f"><input type="checkbox" id="consent" name="consent" required data-label="Privacy consent"> <span>I agree to Tina's Bespoke Treats using my details to reply to this enquiry and prepare my quote. My details are stored securely, never shared or sold, and I can ask for them to be deleted at any time.</span></label>
+    </div>
+  </fieldset>
+
+  <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
+
+  <div class="nav">
+    <button type="button" class="back" id="back" hidden>Back</button>
+    <button type="button" class="next" id="next">Next</button>
+  </div>
+  <p class="err" id="sendErr" role="alert" hidden></p>
+</form>
+
+<div class="done" id="done" hidden tabindex="-1">
+  <h2>Thank you for your enquiry! 💗</h2>
+  <p>Your request has been received. I'll review your details and get back to you with a personalised quote.</p>
+  <p>Please keep an eye on your inbox, including your junk folder.</p>
+  <p id="photoWarn" hidden style="color:#9B2D3E;font-weight:700"></p>
+  <p style="font:400 34px/1.1 var(--script);color:var(--purple);margin-top:20px">I look forward to bringing your vision to life!</p>
+  <p><a class="btn line" href="/">Back to home</a></p>
+</div>
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© Tina's Bespoke Treats · Handmade in Edmonton, North London</span>
+    <span><a href="/christmas/">Christmas sets</a> · <a href="/returns/">Returns and refunds</a> · <a href="https://www.instagram.com/tinasbespoketreats/">Instagram @tinasbespoketreats</a></span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var CFG = {
+    supabase: "https://ecrnwmzdzvpvfxaxolpv.supabase.co",
+    key: "sb_publishable_N0yjgQiIWdJXuOllHMs8xQ_uhJxB_sU",
+    bucket: "enquiry-uploads",
+    email: "https://formsubmit.co/ajax/tinasbespoketreats@gmail.com",
+    orderBook: "https://tinasbespoketreats.com/o-2addf42292e3c9bed28f7597/#enquiries",
+    maxFiles: 10, maxMB: 15
+  };
+  var PRODUCTS = {
+    custom: ["Custom biscuits", "Your custom biscuits", "Hand-decorated biscuits designed around your theme, colours and personalisation."],
+    branded: ["Branded biscuits", "Your branded biscuits", "Biscuits designed around your brand, for events, launches and gifting."],
+    logo: ["Edible logo or artwork biscuits", "Your logo biscuits", "Your logo or artwork printed on edible sugar paper."],
+    image: ["Edible image (photo) biscuits", "Your photo biscuits", "Your own photos printed onto biscuits."],
+    box: ["Biscuit decorating activity box", "Your decorating box", "Biscuits, royal icing and sprinkles to decorate yourselves."]
+  };
+  var DRAFT = "tbt-quote-draft";
+  var form = document.getElementById("q");
+  var steps = [].slice.call(form.querySelectorAll(".step"));
+  var $ = function (id) { return document.getElementById(id); };
+  var cur = 0, started = Date.now(), files = {};
+
+  // --- values & conditions ---
+  function val(name) {
+    var el = form.elements[name];
+    if (!el) return "";
+    if (el.type === "checkbox") return el.checked ? "yes" : "";
+    return (el.value || "").trim();
+  }
+  function test(rule) {
+    var i = rule.indexOf("="), k = rule.slice(0, i), opts = rule.slice(i + 1).split("|");
+    return opts.indexOf(val(k)) > -1;
+  }
+  // Is this question switched on? (ignores which step is currently on screen)
+  function visible(el) {
+    for (var n = el; n && n !== form; n = n.parentElement) {
+      if (n.classList.contains("step")) return activeSteps().indexOf(n) > -1;
+      if (n.hidden) return false;
+    }
+    return true;
+  }
+  function applyConds() {
+    form.querySelectorAll("[data-if]").forEach(function (c) { c.hidden = !test(c.dataset.if); });
+    var p = PRODUCTS[val("product")];
+    $("productHint").textContent = p ? p[2] : "";
+    $("designTitle").textContent = p ? p[1] : "Your design";
+    if (val("receive") === "collect" && !val("collectDate")) $("collectDate").value = val("dateNeeded");
+    if (val("receive") === "deliver" && !val("deliverDate")) $("deliverDate").value = val("dateNeeded");
+  }
+  function activeSteps() { return steps.filter(function (s) { return !(s.dataset.skip && test(s.dataset.skip)); }); }
+
+  // --- progress ---
+  function show(i) {
+    var act = activeSteps();
+    cur = Math.max(0, Math.min(i, act.length - 1));
+    steps.forEach(function (s) { s.hidden = s !== act[cur]; });
+    $("progName").textContent = act[cur + 1] ? "Next: " + act[cur + 1].dataset.name : "Last step";
+    $("progCount").textContent = "Step " + (cur + 1) + " of " + act.length;
+    $("dots").innerHTML = act.map(function (_, j) { return '<i class="' + (j < cur ? "on" : j === cur ? "now" : "") + '"></i>'; }).join("");
+    $("back").hidden = cur === 0;
+    var last = cur === act.length - 1;
+    $("next").textContent = last ? "REQUEST MY PERSONALISED QUOTE ✨" : "Next";
+    $("next").classList.toggle("send", last);
+    $("stepErr").hidden = true;
+    if (last) buildReview();
+    form.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  }
+
+  // --- validation ---
+  function setErr(f, msg) {
+    var box = f.closest(".f") || f;
+    var e = box.querySelector(":scope > .err");
+    if (!msg) { box.classList.remove("bad"); if (e) e.remove(); return; }
+    box.classList.add("bad");
+    if (!e) { e = document.createElement("p"); e.className = "err"; box.appendChild(e); }
+    e.textContent = msg;
+  }
+  function checkField(el) {
+    var v = el.type === "checkbox" ? el.checked : el.value.trim(), msg = "";
+    if (el.required && !v) msg = el.type === "checkbox" ? "Please tick this box to continue." : el.tagName === "SELECT" ? "Please choose an option." : "Please fill in this question.";
+    else if (v && el.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) msg = "Please enter a valid email address, e.g. name@example.com.";
+    else if (v && el.type === "tel" && (v.replace(/\D/g, "").length < 10)) msg = "Please enter a full phone number.";
+    else if (v && el.type === "number") {
+      var n = Number(v), min = Number(el.min || 0);
+      if (!Number.isInteger(n)) msg = "Please enter a whole number.";
+      else if (n < min) msg = min >= 10 ? "The minimum order is " + min + " biscuits." : "Please enter at least " + min + ".";
+    }
+    else if (v && el.type === "date") {
+      var today = new Date(); today.setHours(0, 0, 0, 0);
+      if (new Date(v + "T00:00") < today) msg = "Please choose a date in the future.";
+    }
+    else if (v && el.name === "postcode" && !/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(v)) msg = "Please enter a valid UK postcode.";
+    setErr(el, msg);
+    return !msg;
+  }
+  function checkStep(step) {
+    var ok = true, first = null;
+    step.querySelectorAll("input,select,textarea").forEach(function (el) {
+      if (el.type === "file" || el.closest(".hp") || !visible(el)) return;
+      if (!checkField(el)) { ok = false; first = first || el; }
+    });
+    step.querySelectorAll("[data-upload]").forEach(function (u) {
+      if (!visible(u)) return;
+      var need = u.dataset.required && !(files[u.dataset.upload] || []).length;
+      setErr(u, need ? "Please upload at least one image." : "");
+      if (need) { ok = false; first = first || u.querySelector(".drop"); }
+    });
+    if (!ok) { $("stepErr").textContent = "Please check the highlighted questions below."; $("stepErr").hidden = false; first.focus({ preventScroll: false }); }
+    return ok;
+  }
+  form.addEventListener("input", function (e) { if (e.target.closest(".bad")) checkField(e.target); });
+  form.addEventListener("change", function (e) {
+    applyConds(); saveDraft();
+    if (e.target.closest(".bad") && e.target.type !== "file") checkField(e.target);
+  });
+  form.addEventListener("input", saveDraft);
+  // Stop numbers below the minimum being kept
+  form.querySelectorAll("input[type=number]").forEach(function (el) {
+    el.addEventListener("blur", function () { if (el.value !== "") checkField(el); });
+  });
+
+  // --- dates: no past dates ---
+  var t = new Date(), iso = new Date(t.getTime() - t.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  form.querySelectorAll("input[type=date]").forEach(function (d) { d.min = iso; });
+
+  // --- uploads ---
+  form.querySelectorAll("[data-upload]").forEach(function (box) {
+    var key = box.dataset.upload; files[key] = [];
+    var inp = document.createElement("input");
+    inp.type = "file"; inp.multiple = true; inp.accept = "image/*,.pdf,.svg"; inp.hidden = true; inp.id = key;
+    var drop = document.createElement("div");
+    drop.className = "drop"; drop.tabIndex = 0; drop.setAttribute("role", "button");
+    drop.setAttribute("aria-label", box.querySelector(".lbl").textContent.replace("*", "").trim() + ": choose files");
+    drop.innerHTML = "<strong>Tap to add photos</strong> or drag them here<small>Up to " + CFG.maxFiles + " files · images or PDF · " + CFG.maxMB + "MB each</small>";
+    var th = document.createElement("div"); th.className = "thumbs";
+    box.append(inp, drop, th);
+    var open = function () { inp.click(); };
+    drop.addEventListener("click", open);
+    drop.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+    ["dragenter", "dragover"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); }); });
+    ["dragleave", "drop"].forEach(function (ev) { drop.addEventListener(ev, function () { drop.classList.remove("over"); }); });
+    drop.addEventListener("drop", function (e) { e.preventDefault(); add(e.dataTransfer.files); });
+    inp.addEventListener("change", function () { add(inp.files); inp.value = ""; });
+    function add(list) {
+      var msg = "";
+      [].slice.call(list).forEach(function (f) {
+        if (files[key].length >= CFG.maxFiles) { msg = "You can upload up to " + CFG.maxFiles + " files here."; return; }
+        if (f.size > CFG.maxMB * 1048576) { msg = f.name + " is too large (max " + CFG.maxMB + "MB)."; return; }
+        if (!/^image\//.test(f.type) && !/\.(pdf|svg|heic|heif)$/i.test(f.name)) { msg = f.name + " isn't an image or PDF."; return; }
+        files[key].push(f);
+      });
+      draw(); setErr(box, msg);
+    }
+    function draw() {
+      th.innerHTML = "";
+      files[key].forEach(function (f, i) {
+        var fig = document.createElement("figure");
+        if (/^image\/(jpeg|png|webp|gif)/.test(f.type)) { var im = new Image(); im.alt = ""; im.src = URL.createObjectURL(f); fig.appendChild(im); }
+        else fig.append(f.name);
+        var x = document.createElement("button"); x.type = "button"; x.textContent = "×"; x.setAttribute("aria-label", "Remove " + f.name);
+        x.onclick = function () { files[key].splice(i, 1); draw(); };
+        fig.appendChild(x); th.appendChild(fig);
+      });
+    }
+  });
+
+  // Shrink very large photos before upload (keeps quality high)
+  function shrink(f) {
+    return new Promise(function (res) {
+      if (!/^image\/(jpeg|png|webp)$/.test(f.type) || f.size < 2.5 * 1048576) return res(f);
+      var im = new Image(), u = URL.createObjectURL(f);
+      im.onload = function () {
+        var s = Math.min(1, 2800 / Math.max(im.width, im.height));
+        var c = document.createElement("canvas"); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+        c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        c.toBlob(function (b) { res(b && b.size < f.size ? new File([b], f.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : f); }, "image/jpeg", 0.9);
+      };
+      im.onerror = function () { res(f); };
+      im.src = u;
+    });
+  }
+
+  // --- answers in order (only visible questions) ---
+  function answers() {
+    var out = [], seen = {};
+    activeSteps().forEach(function (s) {
+      var group = { title: s.dataset.name, rows: [] };
+      s.querySelectorAll("[data-label]").forEach(function (el) {
+        if (!visible(el)) return;
+        if (el.dataset.upload) {
+          var fl = files[el.dataset.upload] || [];
+          if (fl.length) group.rows.push([el.dataset.label, fl.map(function (f) { return f.name; }).join(", ")]);
+          return;
+        }
+        if (!el.name || seen[el.name] || el.classList.contains("tick")) return;
+        seen[el.name] = 1;
+        var v = val(el.name);
+        if (el.tagName === "SELECT" && v) v = el.options[el.selectedIndex].text;
+        if (el.type === "checkbox") v = el.checked ? "Yes" : "";
+        if (el.type === "date" && v) v = new Date(v + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
+        if (v) group.rows.push([el.dataset.label, v]);
+      });
+      if (group.rows.length) out.push(group);
+    });
+    return out;
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function buildReview() {
+    $("review").innerHTML = answers().filter(function (g) { return g.title !== "Check and send"; }).map(function (g) {
+      return "<div><h4>" + esc(g.title) + "</h4></div>" + g.rows.filter(function (r) { return r[0] !== "Read the postage notice"; }).map(function (r) { return "<div><dt>" + esc(r[0]) + "</dt><dd>" + esc(r[1]) + "</dd></div>"; }).join("");
+    }).join("");
+  }
+
+  // --- draft saving (so nothing is lost if the page is closed) ---
+  function saveDraft() {
+    try {
+      var d = {};
+      [].forEach.call(form.elements, function (el) { if (el.name && el.type !== "file" && el.name !== "website") d[el.name] = el.type === "checkbox" ? el.checked : el.value; });
+      localStorage.setItem(DRAFT, JSON.stringify(d));
+    } catch (e) {}
+  }
+  try {
+    var d = JSON.parse(localStorage.getItem(DRAFT) || "null");
+    if (d) Object.keys(d).forEach(function (k) { var el = form.elements[k]; if (el && el.type !== "file") { if (el.type === "checkbox") el.checked = d[k]; else el.value = d[k]; } });
+  } catch (e) {}
+
+  // --- navigation ---
+  $("back").addEventListener("click", function () { show(cur - 1); });
+  $("next").addEventListener("click", function () {
+    var act = activeSteps();
+    if (!checkStep(act[cur])) return;
+    if (cur < act.length - 1) return show(cur + 1);
+    submit();
+  });
+  form.addEventListener("submit", function (e) { e.preventDefault(); });
+
+  // --- sending ---
+  function uuid() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, function (c) { return (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16); });
+  }
+  function safe(n) { return n.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "").slice(-60) || "file"; }
+
+  async function submit() {
+    if (form.website.value) return;                       // spam trap
+    if (Date.now() - started < 5000) return;              // too fast to be a person
+    var btn = $("next"); btn.disabled = true; $("back").disabled = true; btn.textContent = "Sending…"; $("sendErr").hidden = true;
+
+    var id = uuid(), groups = answers(), uploaded = [], failed = 0;
+    var all = [];
+    Object.keys(files).forEach(function (k) {
+      var box = form.querySelector('[data-upload="' + k + '"]');
+      if (visible(box)) files[k].forEach(function (f) { all.push({ f: f, label: box.dataset.label }); });
+    });
+    for (var i = 0; i < all.length; i++) {
+      btn.textContent = "Uploading photo " + (i + 1) + " of " + all.length + "…";
+      try {
+        var f = await shrink(all[i].f), path = id + "/" + (i + 1) + "-" + safe(f.name);
+        var r = await fetch(CFG.supabase + "/storage/v1/object/" + CFG.bucket + "/" + path, { method: "POST", headers: { apikey: CFG.key, "Content-Type": f.type || "application/octet-stream", "x-upsert": "false" }, body: f });
+        if (!r.ok) throw 0;
+        uploaded.push({ path: path, name: all[i].f.name, label: all[i].label });
+      } catch (e) { failed++; }
+    }
+    btn.textContent = "Sending…";
+
+    var flat = {}; groups.forEach(function (g) { g.rows.forEach(function (r) { flat[g.title + " · " + r[0]] = r[1]; }); });
+    var record = {
+      id: id, source: "website", status: "new",
+      name: val("name"), email: val("email"), phone: val("phone"),
+      product: (PRODUCTS[val("product")] || [val("product")])[0], event: val("event"),
+      date_needed: val("dateNeeded") || null, budget: val("budget"),
+      answers: groups, files: uploaded
+    };
+    var savedDb = false, emailed = false;
+    try {
+      var r1 = await fetch(CFG.supabase + "/rest/v1/enquiries", { method: "POST", headers: { apikey: CFG.key, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(record) });
+      savedDb = r1.ok;
+    } catch (e) {}
+
+    var mail = { _subject: "New quote request: " + record.product + " for " + record.name + (record.date_needed ? " (needed " + flat["Your order · Date needed"] + ")" : ""), _replyto: record.email, _template: "table", _captcha: "false" };
+    Object.keys(flat).forEach(function (k) { mail[k] = flat[k]; });
+    mail["Photos and files"] = all.length ? (uploaded.length + " of " + all.length + " uploaded" + (failed ? ". " + failed + " could not be saved, so ask the customer to send them on Instagram or by email." : "")) : "None";
+    mail["Saved in order book"] = savedDb ? "Yes: " + CFG.orderBook : "No (not set up yet). This email is the only copy.";
+    mail["Reference"] = id.slice(0, 8).toUpperCase();
+    try {
+      var r2 = await fetch(CFG.email, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(mail) });
+      emailed = r2.ok;
+    } catch (e) {}
+
+    if (!savedDb && !emailed) {
+      $("sendErr").innerHTML = 'Sorry, your enquiry couldn\'t be sent just now. Please try again in a moment, or message me on <a href="https://www.instagram.com/tinasbespoketreats/">Instagram</a>. Your answers are saved on this device.';
+      $("sendErr").hidden = false; btn.disabled = false; $("back").disabled = false; btn.textContent = "REQUEST MY PERSONALISED QUOTE ✨";
+      return;
+    }
+    if (failed) { $("photoWarn").textContent = "Some of your photos couldn't upload. Please send them to me on Instagram (@tinasbespoketreats) and mention your name."; $("photoWarn").hidden = false; }
+    try { localStorage.removeItem(DRAFT); } catch (e) {}
+    form.hidden = true; $("done").hidden = false; $("done").focus(); window.scrollTo(0, 0);
+    if (window.gtag) gtag("event", "generate_lead", { item_category: record.product });
+  }
+
+  applyConds(); show(0);
+})();
+</script>
+</body>
+</html>
