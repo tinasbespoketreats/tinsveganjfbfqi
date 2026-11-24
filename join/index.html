@@ -36,13 +36,12 @@
   .chips{display:flex;flex-wrap:wrap;gap:8px}
   .chips label{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border:1.5px solid #D9CCE6;border-radius:99px;background:var(--cream);font-weight:700;font-size:15px;cursor:pointer}
   .chips input{accent-color:var(--purple);width:18px;height:18px}
+  .f label.tick{display:flex;gap:10px;align-items:flex-start;font-weight:700;line-height:1.45;cursor:pointer}
+  .tick input{width:22px;height:22px;margin-top:1px;flex:none;accent-color:var(--purple)}
   .err{color:#9B2D3E;font-weight:700;font-size:15px;margin-top:6px}
   .hint{font-size:14.5px;color:var(--muted);line-height:1.5}
   .send{font:800 17px/1 var(--body);min-height:54px;border-radius:999px;border:0;background:var(--purple);color:#fff;cursor:pointer}
   .send:hover{background:var(--ink)} .send:disabled{opacity:.6;cursor:wait}
-  .perks{display:grid;gap:8px;margin:0;padding:0}
-  .perks li{list-style:none;padding-left:28px;position:relative}
-  .perks li::before{content:"♥";position:absolute;left:4px;color:var(--lilac)}
   .jcard[hidden]{display:none}
   .done{text-align:center}
   .done h2{font-size:clamp(28px,6vw,38px)}
@@ -58,30 +57,17 @@
   <a href="/"><img src="/assets/logo.png" alt="Tina's Bespoke Treats" width="1400" height="862"></a>
   <p class="eyebrow" style="margin:0">join the list</p>
   <h1>Be the first to know</h1>
-  <p class="lead" style="margin:0 auto">Seasonal biscuit collections sell out fast. Join my list for first access to new designs, limited Christmas sets and exclusive offers, straight to your inbox.</p>
+  <p class="lead" style="margin:0 auto">Discounts, offers and first access to new collections.</p>
 </header>
 <main class="band tint" style="padding-top:clamp(28px,5vw,48px)">
 <div class="wrap">
 <form class="jcard" id="j" novalidate>
-  <ul class="perks">
-    <li>First access to Christmas, Valentine's, Easter and Mother's Day biscuit collections</li>
-    <li>New personalised biscuit designs and decorating kits for kids</li>
-    <li>Subscriber-only offers, a few times a year. No spam, ever</li>
-  </ul>
   <div class="f"><label for="first">First name</label><input type="text" id="first" name="first" autocomplete="given-name" required></div>
   <div class="f"><label for="email">Email address</label><input type="email" id="email" name="email" autocomplete="email" inputmode="email" required></div>
-  <div class="f"><span class="lbl">What would you like to hear about? <span class="hint">(optional)</span></span>
-    <div class="chips">
-      <label><input type="checkbox" name="interest" value="Seasonal collections"> Seasonal collections</label>
-      <label><input type="checkbox" name="interest" value="Birthdays and celebrations"> Birthdays and celebrations</label>
-      <label><input type="checkbox" name="interest" value="Kids' decorating kits"> Kids' decorating kits</label>
-      <label><input type="checkbox" name="interest" value="Weddings and baby showers"> Weddings and baby showers</label>
-      <label><input type="checkbox" name="interest" value="Corporate and branded biscuits"> Corporate and branded biscuits</label>
-    </div></div>
+  <div class="f"><label class="tick"><input type="checkbox" id="offers" required> Yes, I'd like to receive discounts and offers <span class="hint">(unsubscribe at any time)</span></label></div>
   <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
   <button class="send" type="submit" id="go">JOIN THE LIST 💗</button>
   <p class="err" id="err" role="alert" hidden></p>
-  <p class="hint">By joining, you agree to receive occasional emails from Tina's Bespoke Treats about new designs, seasonal collections and offers. Every email has an unsubscribe link, and you can ask me to remove your details at any time. Your details are never shared or sold.</p>
 </form>
 <div class="jcard done" id="done" hidden tabindex="-1">
   <h2>You're on the list! 💗</h2>
@@ -101,7 +87,7 @@
 (function () {
   "use strict";
   var API = "https://ecrnwmzdzvpvfxaxolpv.supabase.co/rest/v1/subscribers", KEY = "sb_publishable_N0yjgQiIWdJXuOllHMs8xQ_uhJxB_sU";
-  var CONSENT = "Joined via tinasbespoketreats.com/join: agreed to receive occasional emails about new designs, seasonal collections and offers.";
+  var CONSENT = "Joined via tinasbespoketreats.com/join: ticked \"Yes, I'd like to receive discounts and offers (unsubscribe at any time)\".";
   var f = document.getElementById("j"), started = Date.now(), $ = function (id) { return document.getElementById(id); };
   var src = new URLSearchParams(location.search).get("from") || "website";
   function bad(id, msg) { var b = $(id).closest(".f"); b.classList.add("bad"); var e = b.querySelector(".err"); if (!e) { e = document.createElement("p"); e.className = "err"; b.appendChild(e); } e.textContent = msg; }
@@ -111,8 +97,9 @@
     var first = $("first").value.trim(), email = $("email").value.trim(), ok = true;
     if (!first) { bad("first", "Please add your first name."); ok = false; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { bad("email", "Please enter a valid email address."); ok = false; }
+    if (!$("offers").checked) { bad("offers", "Please tick the box to join."); ok = false; }
     if (!ok || f.website.value || Date.now() - started < 3000) return;
-    var interests = [].map.call(f.querySelectorAll("input[name=interest]:checked"), function (c) { return c.value; });
+    var interests = [];
     $("go").disabled = true; $("go").textContent = "Joining…"; $("err").hidden = true;
     try {
       var r = await fetch(API, { method: "POST", headers: { apikey: KEY, "Content-Type": "application/json", Prefer: "return=minimal" },
