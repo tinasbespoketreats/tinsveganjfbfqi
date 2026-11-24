@@ -320,6 +320,11 @@
     <p class="intro">Please check your answers. You can go back to change anything.</p>
     <div class="fields">
       <dl class="review" id="review"></dl>
+      <div class="f"><label for="heard">How did you find me? <span class="req">*</span></label>
+        <select id="heard" name="heard" required data-label="How they found Tina's Bespoke Treats"><option value="">Please choose</option>
+          <option>Google search</option><option>Instagram</option><option>An advert</option><option>Facebook</option><option>TikTok</option>
+          <option>Word of mouth or a recommendation</option><option>I've ordered before</option><option>An event or market</option><option value="Other">Other</option></select></div>
+      <div class="cond f" data-if="heard=Other" hidden><label for="heardOther">Where did you hear about me? <span class="req">*</span></label><input id="heardOther" name="heardOther" required data-label="Found us via (other)"></div>
       <div class="f"><label for="extra">Anything else you'd like me to know? <span class="opt">(optional)</span></label><textarea id="extra" name="extra" data-label="Anything else"></textarea></div>
       <label class="tick f"><input type="checkbox" id="accurate" name="accurate" required data-label="Details accurate"> The information I've given is accurate.</label>
       <label class="tick f"><input type="checkbox" id="consent" name="consent" required data-label="Privacy consent"> <span>I agree to Tina's Bespoke Treats using my details to reply to this enquiry and prepare my quote. My details are stored securely, never shared or sold, and I can ask for them to be deleted at any time.</span></label>
