@@ -64,7 +64,7 @@
 <form class="jcard" id="j" novalidate>
   <div class="f"><label for="first">First name</label><input type="text" id="first" name="first" autocomplete="given-name" required></div>
   <div class="f"><label for="email">Email address</label><input type="email" id="email" name="email" autocomplete="email" inputmode="email" required></div>
-  <div class="f"><label class="tick"><input type="checkbox" id="offers" required> Yes, I'd like to receive discounts and offers <span class="hint">(unsubscribe at any time)</span></label></div>
+  <div class="f"><label class="tick"><input type="checkbox" id="offers" required> Yes, I'd like to receive discounts and offers</label></div>
   <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
   <button class="send" type="submit" id="go">JOIN THE LIST 💗</button>
   <p class="err" id="err" role="alert" hidden></p>
@@ -87,7 +87,7 @@
 (function () {
   "use strict";
   var API = "https://ecrnwmzdzvpvfxaxolpv.supabase.co/rest/v1/subscribers", KEY = "sb_publishable_N0yjgQiIWdJXuOllHMs8xQ_uhJxB_sU";
-  var CONSENT = "Joined via tinasbespoketreats.com/join: ticked \"Yes, I'd like to receive discounts and offers (unsubscribe at any time)\".";
+  var CONSENT = "Joined via tinasbespoketreats.com/join: ticked \"Yes, I'd like to receive discounts and offers\".";
   var f = document.getElementById("j"), started = Date.now(), $ = function (id) { return document.getElementById(id); };
   var src = new URLSearchParams(location.search).get("from") || "website";
   function bad(id, msg) { var b = $(id).closest(".f"); b.classList.add("bad"); var e = b.querySelector(".err"); if (!e) { e = document.createElement("p"); e.className = "err"; b.appendChild(e); } e.textContent = msg; }
