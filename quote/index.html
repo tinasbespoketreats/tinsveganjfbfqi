@@ -472,7 +472,18 @@
   form.addEventListener("change", function (e) {
     applyConds(); saveDraft();
     if (e.target.closest(".bad") && e.target.type !== "file") checkField(e.target);
+    clearStaleErrors();
   });
+  form.addEventListener("input", clearStaleErrors);
+  // Remove error messages from questions that are no longer shown, and the top message once nothing is left to fix
+  function clearStaleErrors() {
+    form.querySelectorAll(".bad").forEach(function (b) {
+      if (b.closest(".cond[hidden]")) { b.classList.remove("bad"); var m = b.querySelector(":scope > .err"); if (m) m.remove(); }
+    });
+    var cur = activeSteps()[cur_()];
+    if (cur && !cur.querySelector(".bad")) $("stepErr").hidden = true;
+  }
+  function cur_() { return cur; }
   form.addEventListener("input", saveDraft);
   // Stop numbers below the minimum being kept
   form.querySelectorAll("input[type=number]").forEach(function (el) {
