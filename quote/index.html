@@ -255,9 +255,11 @@
       <div class="cond f" data-if="wrap=yes" hidden><label for="bow">Would you like the wrapping to include a bow? <span class="req">*</span></label>
         <select id="bow" name="bow" required data-label="Bow"><option value="">Please choose</option><option value="yes">Yes</option><option value="no">No</option></select></div>
       <div class="cond f" data-if="bow=yes" hidden><label for="bowColour">Preferred bow colour <span class="req">*</span></label><input id="bowColour" name="bowColour" required placeholder="e.g. gold, blush pink" data-label="Bow colour"></div>
-      <div class="f"><label for="bpack">Would you like personalised or branded packaging? <span class="req">*</span></label><p class="hint">For example printed labels, tags, stickers or boxes with your name or logo.</p>
-        <select id="bpack" name="bpack" required data-label="Personalised or branded packaging"><option value="">Please choose</option><option value="no">No</option><option value="yes">Yes</option></select></div>
-      <div class="cond f" data-if="bpack=yes" hidden><label for="bpackText">Please describe what you'd like <span class="req">*</span></label><textarea id="bpackText" name="bpackText" required data-label="Packaging details"></textarea></div>
+      <div class="cond fields" data-if="product=branded" hidden>
+        <div class="f"><label for="bpack">Would you like personalised or branded packaging? <span class="req">*</span></label><p class="hint">For example printed labels, tags, stickers or boxes with your name or logo.</p>
+          <select id="bpack" name="bpack" required data-label="Personalised or branded packaging"><option value="">Please choose</option><option value="no">No</option><option value="yes">Yes</option></select></div>
+        <div class="cond f" data-if="bpack=yes" hidden><label for="bpackText">Please describe what you'd like <span class="req">*</span></label><textarea id="bpackText" name="bpackText" required data-label="Packaging details"></textarea></div>
+      </div>
     </div>
   </fieldset>
 
