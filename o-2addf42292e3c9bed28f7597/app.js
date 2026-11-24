@@ -228,7 +228,7 @@ function viewEnquiry() {
   <section class="card"><h3>Reply to ${esc(firstName(e))}</h3>
     <p class="hint">Check the message, change anything you like, then send it the way they contacted you.</p>
     <textarea id="eMsg" rows="11" aria-label="Message to the customer">${esc(enqMessage(e))}</textarea>
-    <div class="row">${e.email ? '<button id="eMail">Send by email</button>' : ''}${waNumber(e.phone) ? '<button id="eWa">Send on WhatsApp</button>' : ''}<button id="eCopy">Copy for Instagram</button></div>
+    <div class="row">${e.email ? '<button id="eGmail">Send from Gmail</button><button id="eMail">Send from email app</button>' : ''}${waNumber(e.phone) ? '<button id="eWa">Send on WhatsApp</button>' : ''}<button id="eCopy">Copy for Instagram</button></div>
   </section>
 
   <div class="row">${linkedOrder ? `<button class="primary big-btn" id="eOrderOpen">Open the order</button>` : `<button class="primary big-btn" id="eOrder">Turn into an order</button>`}</div>
@@ -265,6 +265,7 @@ function viewEnquiry() {
   };
   const msg = () => app.querySelector('#eMsg').value;
   app.querySelector('#eMail')?.addEventListener('click', () => { location.href = 'mailto:' + encodeURIComponent(e.email) + '?subject=' + encodeURIComponent("Your quote from Tina's Bespoke Treats") + '&body=' + encodeURIComponent(msg()); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
+  app.querySelector('#eGmail')?.addEventListener('click', () => { window.open('https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(e.email) + '&su=' + encodeURIComponent("Your quote from Tina's Bespoke Treats") + '&body=' + encodeURIComponent(msg()), '_blank', 'noopener'); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
   app.querySelector('#eWa')?.addEventListener('click', () => { window.open('https://wa.me/' + waNumber(e.phone) + '?text=' + encodeURIComponent(msg()), '_blank', 'noopener'); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
   app.querySelector('#eCopy').onclick = async () => { try { await navigator.clipboard.writeText(msg()); toast('Message copied. Paste it into their Instagram messages.'); } catch (x) { const t = app.querySelector('#eMsg'); t.select(); toast('Select the message and copy it.'); } };
   app.querySelector('#eOrderOpen')?.addEventListener('click', () => { S.open = e.order_id; location.hash = '#order'; });
