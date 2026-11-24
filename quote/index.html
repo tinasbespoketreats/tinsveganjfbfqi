@@ -676,7 +676,9 @@
     mail["Photos and files"] = all.length ? (uploaded.length + " of " + all.length + " uploaded" + (failed ? ". " + failed + " could not be saved, so ask the customer to send them on Instagram or by email." : "")) : "None";
     mail["Open in your order book"] = savedDb ? CFG.orderBook + id : "Not saved (connection problem). This email is the only copy.";
     mail["Reference"] = id.slice(0, 8).toUpperCase();
-    try {
+    // Emails to Tina and the customer are sent from Tina's Gmail when the enquiry is saved.
+    // The old email service is only used as a backup if saving fails.
+    if (!savedDb) try {
       // Don't keep the customer waiting if the email service is slow: give it 10 seconds
       var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, savedDb ? 10000 : 25000);
       var r2 = await fetch(CFG.email, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(mail), signal: ctl.signal });
