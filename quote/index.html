@@ -251,8 +251,9 @@
     <legend>Packaging</legend>
     <p class="intro">How would you like your biscuits presented?</p>
     <div class="fields">
-      <div class="f"><label for="wrap">Would you like each biscuit individually wrapped in cellophane? <span class="req">*</span></label><p class="hint">Great for favours and gifts.</p>
+      <div class="f"><label for="wrap">Would you like each biscuit individually wrapped in cellophane? <span class="req">*</span></label><p class="hint">Perfect for gifting, party bags, wedding and event favours, corporate giveaways, goody bags, thank-you gifts and handing out at school or office events.</p>
         <select id="wrap" name="wrap" required data-label="Individually wrapped"><option value="">Please choose</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+      <p class="cond note" data-if="wrap=no" hidden>Your biscuits will come together in a white windowed box. This is ideal for parties, events and celebrations where guests will enjoy them there and then.</p>
       <div class="cond f" data-if="wrap=yes" hidden><label for="bow">Would you like the wrapping to include a bow? <span class="req">*</span></label>
         <select id="bow" name="bow" required data-label="Bow"><option value="">Please choose</option><option value="yes">Yes</option><option value="no">No</option></select></div>
       <div class="cond f" data-if="bow=yes" hidden><label for="bowColour">Preferred bow colour <span class="req">*</span></label><input id="bowColour" name="bowColour" required placeholder="e.g. gold, blush pink" data-label="Bow colour"></div>
