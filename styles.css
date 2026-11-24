@@ -75,3 +75,8 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-betw
 .soon .eyebrow{font-size:38px;margin:0}
 .soon h2{font-size:clamp(28px,6vw,42px)}
 .soon .lead{margin:0 0 8px}
+
+/* Site menu fits small phones */
+@media (max-width:420px){nav[aria-label="Site"]{font-size:14.5px}nav[aria-label="Site"] a{white-space:nowrap}nav[aria-label="Site"]>span{gap:12px!important}}
+@media (max-width:400px){nav[aria-label="Site"] a[aria-label^="Instagram"]{display:none!important}}
+@media (max-width:350px){nav[aria-label="Site"]{flex-wrap:wrap;justify-content:center;row-gap:0}nav[aria-label="Site"]{font-size:14px}}
