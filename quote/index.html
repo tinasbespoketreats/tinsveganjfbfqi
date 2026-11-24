@@ -269,8 +269,8 @@
       <div class="f"><label for="receive">Collection, postage or hand delivery? <span class="req">*</span></label>
         <select id="receive" name="receive" required data-label="How they'll receive it"><option value="">Please choose</option>
           <option value="collect">Collection from Edmonton N9, London (FREE)</option>
-          <option value="post">Postage (Royal Mail Tracked 24)</option>
-          <option value="deliver">Hand delivery</option></select></div>
+          <option value="post">Postage, Royal Mail Tracked 24 (from £6)</option>
+          <option value="deliver">Hand delivery (from £5, depending on location)</option></select></div>
 
       <div class="cond fields" data-if="receive=collect" hidden>
         <p class="note">Collection is from Edmonton, North London (N9). You'll receive the full address once payment for your order has been processed.</p>
@@ -283,17 +283,17 @@
 
       <div class="cond fields" data-if="receive=post" hidden>
         <div class="note">
-          <p>Orders are sent by <strong>Royal Mail Tracked 24</strong> and posted 4 to 5 days before your event date, so they arrive in plenty of time.</p>
+          <p>Postage starts from £6. Orders are sent by <strong>Royal Mail Tracked 24</strong> and posted 4 to 5 days before your event date, so they arrive in plenty of time.</p>
           <p>All posted biscuits are heat-sealed in cellophane to keep them fresh (up to 2 weeks while sealed) and carefully packaged to protect them.</p>
         </div>
         <div class="note warn">
-          <p><strong>Please note:</strong> posting fully detailed bespoke biscuits always carries some risk. I haven't had any complaints so far, but minor scuffs to fine details can happen in transit. If anything arrives damaged, please send me photos as soon as it arrives and I'll arrange a replacement or refund for the affected biscuits.</p>
+          <p><strong>Please note:</strong> posting fully detailed bespoke biscuits always carries some risk. I haven't had any complaints so far, but minor scuffs to fine details can happen in transit. For delicate designs, collection or hand delivery is the safest option. See my <a href="/returns/">returns and refunds policy</a>.</p>
         </div>
         <label class="tick f" data-label="Postage notice"><input type="checkbox" id="postOk" name="postOk" required data-label="Read the postage notice"> I've read and understood the postage notice.</label>
       </div>
 
       <div class="cond fields" data-if="receive=deliver" hidden>
-        <p class="note">There's a delivery charge depending on your location (from £5). I'll be in touch to confirm the delivery time and price.</p>
+        <p class="note">Hand delivery starts from £5, depending on your location. Enter your postcode below to see an estimate. I'll be in touch to confirm the delivery time and price.</p>
         <div class="f"><label for="deliverDate">Delivery date <span class="req">*</span></label><input id="deliverDate" name="deliverDate" type="date" required data-label="Delivery date"></div>
       </div>
 
@@ -304,6 +304,7 @@
           <div class="f"><label for="town">Town or city <span class="req">*</span></label><input id="town" name="town" autocomplete="address-level2" required data-label="Town or city"></div>
           <div class="f"><label for="postcode">Postcode <span class="req">*</span></label><input id="postcode" name="postcode" autocomplete="postal-code" autocapitalize="characters" required data-label="Postcode"></div>
         </div>
+        <div class="cond note" data-if="receive=deliver" id="delEst" aria-live="polite" hidden>Enter your postcode above to see an estimated hand delivery price.</div>
       </div>
     </div>
   </fieldset>
@@ -356,7 +357,9 @@
     bucket: "enquiry-uploads",
     email: "https://formsubmit.co/ajax/tinasbespoketreats@gmail.com",
     orderBook: "https://tinasbespoketreats.com/o-2addf42292e3c9bed28f7597/#enquiries",
-    maxFiles: 10, maxMB: 15
+    maxFiles: 10, maxMB: 15,
+    // Hand delivery estimate: drive there and back from Tina's kitchen
+    delivery: { home: "N9 7LJ", homeLat: null, homeLon: null, perHour: 11, perMile: 0.45, mph: 20, roadFactor: 1.3, min: 5 }
   };
   var PRODUCTS = {
     custom: ["Custom biscuits", "Your custom biscuits", "Hand-decorated biscuits designed around your theme, colours and personalisation."],
@@ -531,6 +534,35 @@
     });
   }
 
+  // --- hand delivery estimate ---
+  var est = null;
+  async function where(pc) {
+    var r = await fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(pc.replace(/\s+/g, "")));
+    if (!r.ok) throw r.status;
+    var d = (await r.json()).result; return { lat: d.latitude, lon: d.longitude, pc: d.postcode };
+  }
+  async function estimate() {
+    var box = $("delEst"), pc = val("postcode"), D = CFG.delivery;
+    est = null;
+    if (val("receive") !== "deliver") return;
+    if (!/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(pc)) { box.textContent = "Enter your postcode above to see an estimated hand delivery price."; return; }
+    box.textContent = "Working out your delivery price…";
+    try {
+      if (D.homeLat === null) { var h = await where(D.home); D.homeLat = h.lat; D.homeLon = h.lon; }
+      var to = await where(pc), rad = Math.PI / 180;
+      var a = Math.sin((to.lat - D.homeLat) * rad / 2) ** 2 + Math.cos(D.homeLat * rad) * Math.cos(to.lat * rad) * Math.sin((to.lon - D.homeLon) * rad / 2) ** 2;
+      var miles = 2 * 3958.8 * Math.asin(Math.sqrt(a)) * D.roadFactor * 2;          // there and back
+      var mins = miles / D.mph * 60;
+      var price = Math.max(D.min, Math.ceil(mins / 60 * D.perHour + miles * D.perMile));
+      est = { price: price, miles: Math.round(miles), mins: Math.round(mins / 5) * 5 || 5, pc: to.pc };
+      box.innerHTML = "<strong>Estimated hand delivery: £" + price + "</strong><br>About " + est.miles + " miles and " + est.mins + " minutes' driving there and back to " + esc(to.pc) + ". This is an estimate. I'll confirm the exact price with you.";
+    } catch (e) {
+      box.textContent = e === 404 ? "I couldn't find that postcode. Please check it. I'll confirm the delivery price with you either way." : "I couldn't work out an estimate just now. I'll confirm the delivery price with you.";
+    }
+  }
+  $("postcode").addEventListener("change", estimate);
+  $("receive").addEventListener("change", estimate);
+
   // --- answers in order (only visible questions) ---
   function answers() {
     var out = [], seen = {};
@@ -551,6 +583,7 @@
         if (el.type === "date" && v) v = new Date(v + "T12:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
         if (v) group.rows.push([el.dataset.label, v]);
       });
+      if (s.dataset.name === "Getting your order" && est && val("receive") === "deliver") group.rows.push(["Estimated delivery price", "£" + est.price + " (about " + est.miles + " miles, " + est.mins + " mins there and back)"]);
       if (group.rows.length) out.push(group);
     });
     return out;
