@@ -136,11 +136,11 @@ const PRICING = {
   wrap: 20, firstCutter: 800, extraCutter: 400, customCutter: 1200,
   delivery: {'Collection': 0, 'Personal delivery': 0, 'Royal Mail – small': 900, 'Royal Mail – medium': 1200, 'Royal Mail – large': 1800},
   // Personal delivery: petrol in pence per litre, car miles per gallon (UK), and the extra distance roads add to a straight line.
-  // Customer pays £14 an hour for the drive there, plus 55p a mile (HMRC rate) for the miles there and back, to the nearest £1, £5 minimum,
+  // Customer pays £14 an hour for the drive there, plus 55p a mile (HMRC rate) for the miles there and back, to the nearest £1, £6 minimum,
   // plus the £18 London Congestion Charge when the delivery is in the zone during charging hours.
   // Drive time: 12mph anywhere in London (within 12 miles of the centre), plus 15 mins of crawling in central London;
   // outside London, the first 5 miles at 12mph and the rest at 35mph.
-  car: {home: 'N9 7LJ', petrol: 179, mpg: 40, roadFactor: 1.3, minCharge: 500, perMile: 55, perHour: 1400, congestion: 1800,
+  car: {home: 'N9 7LJ', petrol: 179, mpg: 40, roadFactor: 1.3, minCharge: 600, perMile: 55, perHour: 1400, congestion: 1800,
     londonMiles: 12, londonMph: 12, centralMiles: 2.5, centralExtraMins: 15, slowMiles: 5, openMph: 35},
   base: {flour: [80, 120], sugar: [225, 150], vitalite: [200, 44], vanilla: [899, 300]},
   icing: {fondant: [290, 40], royal: [265, 60]},
