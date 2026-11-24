@@ -104,7 +104,7 @@ function viewOrder() {
   : `<section class="card"><h3>Add to Google Calendar</h3><div class="row">${cal.length ? cal.map(([l, u]) => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">${esc(l)}</a>`).join('') : '<span class="muted">Add dates to the order to use this.</span>'}</div><a href="#calendar" class="small">Put every order in your calendar automatically, with reminders</a></section>`}
   <section class="card detail">
     ${item('Email', o.email)}${item('Instagram', o.instagram)}${item('Phone', o.phone)}${item('Make on', fmt(o.makeDate))}${item('Post on', fmt(oldPostDate(o)))}${item(h.label === 'Post' ? 'Post on' : h.label === 'Deliver' ? 'Hand delivery' : h.label, [fmt(h.date), h.time].filter(Boolean).join(' at '))}
-    ${item(o.fulfilment === 'post' ? 'Postal address' : 'Delivery address', sendsOut(o) && o.deliveryAddress)}${item('Delivery location', o.fulfilment === 'delivery' && o.deliveryLocation)}
+    ${item(o.fulfilment === 'post' ? 'Postal address' : 'Delivery address', sendsOut(o) && o.deliveryAddress)}${item('Delivery location', o.fulfilment === 'delivery' && o.deliveryLocation)}${o.trackingNumber ? `<div><h3>Tracking number</h3>${esc(o.trackingNumber)}<br><a class="small" href="https://www.royalmail.com/track-your-item#/tracking-results/${encodeURIComponent(o.trackingNumber.replace(/\s+/g, ''))}" target="_blank" rel="noopener">Track on Royal Mail</a></div>` : ''}
     ${item('Dietary preference', o.dietary)}${item('Colour scheme', o.colourScheme)}${item('Packaging', [o.cellophane ? 'Wrapped in cellophane' : 'No cellophane', o.bow === 'with' ? 'with a ' + (o.bowColour || '') + ' bow' : o.bow === 'without' ? 'without a bow' : ''].filter(Boolean).join(', '))}
     ${item('Deposit paid on', s.deposit ? fmt(o.depositDate) : '')}${item('Paid in full on', o.balancePaid ? fmt(o.balancePaidDate) : '')}${item('Balance due on', s.outstanding ? fmt(dueDate(o)) : '')}
     <div class="full" style="grid-column:1/-1"><h3>Theme, design and ideas</h3>${esc(o.details) || '<span class="muted">Nothing added.</span>'}</div>
@@ -293,7 +293,7 @@ function viewForm(o) {
     <div id="sendBox" class="full" style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <div class="f" style="grid-column:1/-1"><label for="deliveryAddress">Address</label><textarea id="deliveryAddress" name="deliveryAddress" style="min-height:70px">${esc(o.deliveryAddress)}</textarea></div>
       <div id="handBox" style="display:contents">${field('deliveryDate', o.deliveryDate, 'Date to be delivered', 'date', 'Leave blank for the event date')}${field('deliveryTime', o.deliveryTime, 'Time to be delivered', 'time')}<div style="grid-column:1/-1">${field('deliveryLocation', o.deliveryLocation, 'Location', 'text', 'Venue, room or drop-off point')}</div></div>
-      <div id="postBox" style="display:contents">${field('postDate', o.postDate, 'Date to be posted', 'date')}${field('postTime', o.postTime, 'Time to be posted', 'time')}</div>
+      <div id="postBox" style="display:contents">${field('postDate', o.postDate, 'Date to be posted', 'date')}${field('postTime', o.postTime, 'Time to be posted', 'time')}<div style="grid-column:1/-1">${field('trackingNumber', o.trackingNumber, 'Tracking number', 'text', 'From the Royal Mail receipt. You can add it after posting.')}</div></div>
     </div>
     <div id="colBox" class="full" style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       ${field('collectionDate', o.collectionDate, 'Collection date', 'date', 'Leave blank for the event date')}${field('collectionTime', o.collectionTime, 'Collection time', 'time')}
@@ -330,7 +330,8 @@ function viewForm(o) {
     d.costs = [...linesEl.children].map(l => ({item: l.querySelector('input[type=text]').value.trim(), amount: l.querySelector('input[type=number]').value})).filter(c => c.item || c.amount);
     const p = d.payment; d.balancePaid = p === 'paid'; d.balancePaidDate = p === 'paid' ? d.paidDate : '';
     if (p === 'none') { d.deposit = ''; d.depositDate = ''; }
-    if (d.fulfilment !== 'post') { d.postDate = ''; d.postTime = ''; }
+    if (d.fulfilment !== 'post') { d.postDate = ''; d.postTime = ''; d.trackingNumber = ''; }
+    d.trackingNumber = (d.trackingNumber || '').trim().toUpperCase();
     if (d.fulfilment !== 'delivery') { d.deliveryDate = ''; d.deliveryTime = ''; d.deliveryLocation = ''; }
     if (!sendsOut(d)) d.deliveryFee = '';
     delete d.paidDate; delete d.balanceDue; return d; };
@@ -509,7 +510,7 @@ function viewMoney() {
     try { S.ym = date.slice(0, 7); S.year = date.slice(0, 4); await S.db.collection('expenses').add({date, item, amount, source: q('oeSrc').value, entryType: q('oeType').value, createdAt: new Date().toISOString()}); toast('Entry added'); }
     catch (x) { err.textContent = "That didn't save. Check your connection and try again."; err.hidden = false; } });
   const csv = async (name, head, rows) => { try { await S.downloads.save({filename: name, data: [head, ...rows].map(r => r.map(csvCell).join(',')).join('\n')}); toast('File saved'); } catch (e) { if (e?.code !== 'declined') toast("That file couldn't be saved here."); } };
-  app.querySelector('#csvO')?.addEventListener('click', () => csv('tinas-orders.csv', ['Event date', 'Customer', 'Email', 'Instagram', 'Phone', 'Status', 'Biscuits', 'Cupcakes', 'Details', 'Colours', 'Allergies', 'Dietary preference', 'Make date', 'Post date', 'Delivery or collection', 'Income', 'Expenses', 'Profit', 'Deposit', 'Outstanding'], S.orders.map(o => { const s = sums(o); return [o.eventDate, o.customerName, o.email, o.instagram, o.phone, o.status, o.biscuits ? o.biscuitQty : '', o.cupcakes ? o.cupcakeQty : '', o.details, o.colourScheme, o.allergies, o.dietary, o.makeDate, o.postDate, o.fulfilment, s.income / 100, s.costs / 100, s.profit / 100, s.deposit / 100, s.outstanding / 100]; })));
+  app.querySelector('#csvO')?.addEventListener('click', () => csv('tinas-orders.csv', ['Event date', 'Customer', 'Email', 'Instagram', 'Phone', 'Status', 'Biscuits', 'Cupcakes', 'Details', 'Colours', 'Allergies', 'Dietary preference', 'Make date', 'Post date', 'Tracking number', 'Delivery or collection', 'Income', 'Expenses', 'Profit', 'Deposit', 'Outstanding'], S.orders.map(o => { const s = sums(o); return [o.eventDate, o.customerName, o.email, o.instagram, o.phone, o.status, o.biscuits ? o.biscuitQty : '', o.cupcakes ? o.cupcakeQty : '', o.details, o.colourScheme, o.allergies, o.dietary, o.makeDate, o.postDate, o.trackingNumber || '', o.fulfilment, s.income / 100, s.costs / 100, s.profit / 100, s.deposit / 100, s.outstanding / 100]; })));
   app.querySelector('#csvE')?.addEventListener('click', () => csv('tinas-earnings-and-expenses.csv', ['Date', 'What', 'Type', 'Where from', 'Income or expense', 'Amount'], S.expenses.map(e => [e.date, e.item, e.category, e.source || 'Business', e.entryType === 'income' ? 'Income' : 'Expense', e.amount])));
 }
 
