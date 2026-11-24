@@ -170,3 +170,6 @@ tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:0}
 @media (max-width:560px){.ans-group dl{grid-template-columns:minmax(0,1fr)}.ans-group dd{margin-bottom:6px}}
 #eMsg{width:100%;font:inherit;line-height:1.5}
 .thumb a{display:flex;align-items:center;justify-content:center;height:100%;padding:6px;text-align:center;font-size:12.5px;font-weight:700;overflow-wrap:anywhere}
+
+.paybox{border-top:1px solid var(--line);padding-top:12px;display:grid;gap:8px}
+.paybox h3{margin:0}

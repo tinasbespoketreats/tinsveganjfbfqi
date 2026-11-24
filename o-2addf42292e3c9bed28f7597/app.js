@@ -6,7 +6,7 @@ const STATUSES = ['Confirmed', 'In progress', 'Ready', 'Completed', 'Cancelled']
 const CATS = ['Ingredients', 'Packaging', 'Equipment', 'Delivery and travel', 'Marketing', 'Fees', 'Other'];
 const UC_TYPE = {Ingredients: 'Goods and materials', Packaging: 'Goods and materials', Equipment: 'Office and equipment costs', Marketing: 'Marketing and advertising'};
 const DRAFT = 'tina-order-draft';
-const CAL_ID = '00000000-0000-4000-8000-0000000ca1e0', CAL_LAST = 'tina-cal-synced';
+const CAL_ID = '00000000-0000-4000-8000-0000000ca1e0', CAL_LAST = 'tina-cal-synced', PAY_ID = '00000000-0000-4000-8000-0000000a1d00';
 const CAL_SCRIPT = "// Tina's Order Book -> Google Calendar. Paste all of this into a new Apps Script project.\nconst SECRET = '__SECRET__';\nconst CAL_NAME = \"Tina's Orders\";\nconst TZ = 'Europe/London';\n\nfunction doGet() { return out_({ok: true, name: CAL_NAME}); }\n\nfunction doPost(e) {\n  let body;\n  try { body = JSON.parse(e.postData.contents); } catch (x) { return out_({ok: false, error: 'bad request'}); }\n  if (body.secret !== SECRET) return out_({ok: false, error: 'wrong secret'});\n  const lock = LockService.getScriptLock();\n  lock.waitLock(60000);\n  try {\n    const cal = calendar_(), byOrder = {};\n    cal.getEvents(new Date(2020, 0, 1), new Date(2040, 0, 1)).forEach(function (ev) {\n      const id = ev.getTag('tbOrder');\n      if (id) (byOrder[id] = byOrder[id] || []).push(ev);\n    });\n    const seen = {};\n    let changed = 0;\n    (body.orders || []).forEach(function (o) {\n      seen[o.id] = true;\n      const old = byOrder[o.id] || [], events = o.events || [];\n      if (old.length === events.length && old.every(function (ev) { return ev.getTag('tbSig') === o.sig; })) return;\n      old.forEach(function (ev) { ev.deleteEvent(); });\n      events.forEach(function (x) {\n        const start = Utilities.parseDate(x.date + ' ' + x.time, TZ, 'yyyy-MM-dd HH:mm');\n        const ev = cal.createEvent(x.title, start, new Date(start.getTime() + x.mins * 60000), {description: x.details || '', location: x.location || ''});\n        ev.setTag('tbOrder', o.id); ev.setTag('tbSig', o.sig);\n        ev.removeAllReminders();\n        (x.reminders || []).forEach(function (m) { ev.addPopupReminder(m); });\n      });\n      changed++;\n    });\n    if (body.full) Object.keys(byOrder).forEach(function (id) {\n      if (!seen[id]) { byOrder[id].forEach(function (ev) { ev.deleteEvent(); }); changed++; }\n    });\n    return out_({ok: true, changed: changed});\n  } catch (x) {\n    return out_({ok: false, error: String(x && x.message || x)});\n  } finally {\n    lock.releaseLock();\n  }\n}\n\nfunction calendar_() {\n  const found = CalendarApp.getCalendarsByName(CAL_NAME)[0];\n  return found || CalendarApp.createCalendar(CAL_NAME, {color: CalendarApp.Color.PINK, timeZone: TZ});\n}\n\n// Press Run on this once in the editor so Google asks for permission to use your calendar.\nfunction setUp() { calendar_(); }\n\nfunction out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }\n";
 const today = () => iso(new Date());
 S.ym = today().slice(0, 7); S.year = today().slice(0, 4);
@@ -192,7 +192,7 @@ function enqMessage(e) {
   const qs = e.quotes || [], q = qs.filter(x => x.accepted).pop() || qs[qs.length - 1], when = e.date_needed ? ' for ' + fmt(e.date_needed, {day: 'numeric', month: 'long'}) : '';
   const sign = '\n\nChristina\nTina\'s Bespoke Treats';
   if (!q) return `Hi ${firstName(e)},\n\nThank you so much for your enquiry${when}! I'm looking through your details now and will send you a personalised quote very soon.${sign}`;
-  return `Hi ${firstName(e)},\n\nThank you for your enquiry${when}! Here is your personalised quote:\n\n${q.includes}\n\nTotal: ${gbp(P(q.price))}${P(q.delivery) ? ' (including ' + gbp(P(q.delivery)) + ' delivery)' : ''}${q.note ? '\n\n' + q.note : ''}\n\nFull payment of ${gbp(P(q.price))} confirms your order and secures your date. Just let me know if you'd like to go ahead, or if you'd like to change anything and I'll update your quote.${sign}`;
+  return `Hi ${firstName(e)},\n\nThank you for your enquiry${when}! Here is your personalised quote:\n\n${q.includes}\n\nTotal: ${gbp(P(q.price))}${P(q.delivery) ? ' (including ' + gbp(P(q.delivery)) + ' delivery)' : ''}${q.note ? '\n\n' + q.note : ''}\n\nFull payment of ${gbp(P(q.price))} confirms your order and secures your date.${S.payImage ? ' My payment details are in the picture attached.' : ''} Just let me know if you'd like to go ahead, or if you'd like to change anything and I'll update your quote.${sign}`;
 }
 const waNumber = p => { let d = String(p || '').replace(/[^\d+]/g, ''); if (d.startsWith('+')) d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2); else if (d.startsWith('0')) d = '44' + d.slice(1); return d.length >= 10 ? d : ''; };
 
@@ -228,6 +228,13 @@ function viewEnquiry() {
     <p class="hint">Check the message, change anything you like, then send it the way they contacted you.</p>
     <textarea id="eMsg" rows="11" aria-label="Message to the customer">${esc(enqMessage(e))}</textarea>
     <div class="row">${e.email ? '<button id="eGmail">Send from Gmail</button><button id="eMail">Send from email app</button>' : ''}${waNumber(e.phone) ? '<button id="eWa">Send on WhatsApp</button>' : ''}<button id="eCopy">Copy for Instagram</button></div>
+    <div class="paybox"><h3>Payment details picture</h3>
+      ${S.payImage ? `<div class="row" style="align-items:center"><div class="thumb" style="width:88px"><img id="payImg" alt="Your payment details"></div>
+        <div class="stack" style="gap:6px;flex:1"><span class="hint">Send this with your quote so the customer knows how to pay.</span>
+        <div class="row"><button class="primary" id="payShare">Share message and picture</button><button id="payDl">Save picture</button><label class="link small" for="payPick" tabindex="0">Change picture</label></div></div></div>`
+      : `<p class="hint">Add the picture with your bank details once, and you can send it with every quote.</p><label class="btn" for="payPick" tabindex="0">Add payment details picture</label>`}
+      <input type="file" id="payPick" accept="image/*" hidden>
+    </div>
   </section>
 
   <div class="row">${linkedOrder ? `<button class="primary big-btn" id="eOrderOpen">Open the order</button>` : `<button class="primary big-btn" id="eOrder">Turn into an order</button>`}</div>
@@ -267,6 +274,26 @@ function viewEnquiry() {
   app.querySelector('#eGmail')?.addEventListener('click', () => { window.open('https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(e.email) + '&su=' + encodeURIComponent("Your quote from Tina's Bespoke Treats") + '&body=' + encodeURIComponent(msg()), '_blank', 'noopener'); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
   app.querySelector('#eWa')?.addEventListener('click', () => { window.open('https://wa.me/' + waNumber(e.phone) + '?text=' + encodeURIComponent(msg()), '_blank', 'noopener'); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
   app.querySelector('#eCopy').onclick = async () => { try { await navigator.clipboard.writeText(msg()); toast('Message copied. Paste it into their Instagram messages.'); } catch (x) { const t = app.querySelector('#eMsg'); t.select(); toast('Select the message and copy it.'); } };
+  const payPick = app.querySelector('#payPick');
+  payPick.onchange = async () => {
+    const f = payPick.files[0]; if (!f) return;
+    try { const blob = await shrink(f), path = 'settings/payment-details-' + crypto.randomUUID() + '.jpg'; await TB.uploadTo(ENQ_BUCKET, path, blob);
+      const old = S.payImage; await TB.put('expenses', PAY_ID, {path}); S.payImage = path; if (old) TB.removeFrom(ENQ_BUCKET, [old]).catch(() => {}); toast('Payment details picture saved'); viewEnquiry(); }
+    catch (x) { toast("The picture didn't save. Check your connection and try again."); }
+  };
+  if (S.payImage) {
+    let payBlob = null;
+    TB.signedFrom(ENQ_BUCKET, [S.payImage]).then(async m => { const u = m[S.payImage]; if (!u) return; app.querySelector('#payImg').src = u; payBlob = await (await fetch(u)).blob(); }).catch(() => {});
+    const payFile = () => payBlob && new File([payBlob], "Tina's Bespoke Treats payment details.jpg", {type: 'image/jpeg'});
+    app.querySelector('#payImg').onclick = ev => ev.target.src && lightbox(ev.target.src);
+    app.querySelector('#payDl').onclick = () => { const f = payFile(); if (!f) return toast('The picture is still loading. Try again in a moment.'); const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+    app.querySelector('#payShare').onclick = async () => {
+      const f = payFile(); if (!f) return toast('The picture is still loading. Try again in a moment.');
+      const data = {text: msg(), files: [f]};
+      if (navigator.canShare && navigator.canShare(data)) { try { await navigator.share(data); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); } catch (x) {} }
+      else toast("Sharing a picture works on your phone. On a laptop, press Save picture and attach it to your email.");
+    };
+  }
   app.querySelector('#eOrderOpen')?.addEventListener('click', () => { S.open = e.order_id; location.hash = '#order'; });
   app.querySelector('#eOrder')?.addEventListener('click', () => {
     const q = qs.filter(x => x.accepted).pop() || qs[qs.length - 1];
@@ -834,7 +861,8 @@ async function load() {
     const [o, e] = await Promise.all([TB.list('orders'), TB.list('expenses')]);
     const cfg = e.find(r => r.id === CAL_ID);
     S.cal = cfg && cfg.data && cfg.data.url && cfg.data.secret ? cfg.data : null;
-    S.orders = o.map(r => ({...r.data, id: r.id})); S.expenses = e.filter(r => r.id !== CAL_ID).map(r => ({...r.data, id: r.id})); S.failed = false;
+    const pay = e.find(r => r.id === PAY_ID); S.payImage = pay && pay.data && pay.data.path || '';
+    S.orders = o.map(r => ({...r.data, id: r.id})); S.expenses = e.filter(r => r.id !== CAL_ID && r.id !== PAY_ID).map(r => ({...r.data, id: r.id})); S.failed = false;
     await loadEnquiries();
   } catch (x) {
     if (x.status === 401) { await TB.signOut(); S.orders = []; S.expenses = []; S.db = null; showShell(false); return; }
