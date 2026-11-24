@@ -187,11 +187,14 @@ function viewEnquiries() {
   const qi = app.querySelector('#eq'); qi.oninput = () => { S.enqQ = qi.value; const at = qi.selectionStart; viewEnquiries(); const n = app.querySelector('#eq'); n.focus(); n.setSelectionRange(at, at); };
   app.querySelector('#ef').onchange = ev => { S.enqFilter = ev.target.value; viewEnquiries(); };
   app.querySelector('#mlist').onclick = async () => {
-    const seen = {}, rows = S.enquiries.filter(e => e.email && rawOf(e).marketing === true).sort((a, b) => a.created_at.localeCompare(b.created_at))
-      .filter(e => { const k = e.email.trim().toLowerCase(); if (seen[k]) return false; seen[k] = 1; return true; })
-      .map(e => [firstName(e) === 'there' ? '' : firstName(e), e.name || '', e.email.trim(), e.created_at.slice(0, 10), ENQ_SOURCES[e.source] || 'Website', e.product || '']);
-    if (!rows.length) return toast('Nobody has signed up yet. People who tick the email box on your quote form will appear here.');
-    try { await S.downloads.save({filename: 'tinas-mailing-list-' + today() + '.csv', data: [['First name', 'Full name', 'Email', 'Signed up', 'Came from', 'Asked about'], ...rows].map(r => r.map(csvCell).join(',')).join('\n')}); toast(rows.length + (rows.length === 1 ? ' person' : ' people') + ' saved to your mailing list file'); }
+    let subs = [];
+    try { subs = (await TB.query('subscribers?select=*&unsubscribed_at=is.null&order=created_at.asc')) || []; } catch (x) {}
+    const seen = {}, all = [
+      ...subs.map(s => ({t: s.created_at, row: [s.first_name || '', s.first_name || '', (s.email || '').trim(), s.created_at.slice(0, 10), 'Join my list page' + (s.source && s.source !== 'website' ? ' (' + s.source + ')' : ''), (s.interests || []).join('; ')]})),
+      ...S.enquiries.filter(e => e.email && rawOf(e).marketing === true).map(e => ({t: e.created_at, row: [firstName(e) === 'there' ? '' : firstName(e), e.name || '', e.email.trim(), e.created_at.slice(0, 10), 'Quote form', e.product || '']}))];
+    const rows = all.sort((a, b) => a.t.localeCompare(b.t)).map(x => x.row).filter(r => { const k = r[2].toLowerCase(); if (!k || seen[k]) return false; seen[k] = 1; return true; });
+    if (!rows.length) return toast('Nobody has signed up yet. People who join on your website, or tick the email box on your quote form, will appear here.');
+    try { await S.downloads.save({filename: 'tinas-mailing-list-' + today() + '.csv', data: [['First name', 'Full name', 'Email', 'Signed up', 'Came from', 'Interested in'], ...rows].map(r => r.map(csvCell).join(',')).join('\n')}); toast(rows.length + (rows.length === 1 ? ' person' : ' people') + ' saved to your mailing list file'); }
     catch (x) { toast("That file couldn't be saved here."); }
   };
 }
