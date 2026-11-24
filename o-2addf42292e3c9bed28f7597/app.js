@@ -126,7 +126,7 @@ function viewOrder() {
 }
 
 /* price an order */
-S.pq = {lines: [{style: 'Logo / photo topper', qty: '', topper: 'Toppers 12 x 7cm'}], wrapped: false, delivery: 'Collection', shapes: '', customCutter: false, postcode: '', miles: '', petrol: PRICING.car.petrol, mpg: PRICING.car.mpg};
+S.pq = {lines: [{style: 'Logo / photo topper', qty: '', topper: 'Toppers 12 x 7cm'}], wrapped: false, delivery: 'Collection', shapes: '', customCutter: false, postcode: '', miles: '', driveMins: '', congestion: false, petrol: PRICING.car.petrol, mpg: PRICING.car.mpg};
 const CAR = 'tina-car';
 try { const c = JSON.parse(localStorage.getItem(CAR)) || {}; if (c.petrol > 0) S.pq.petrol = c.petrol; if (c.mpg > 0) S.pq.mpg = c.mpg; } catch (e) {}
 const homeAt = {};
@@ -154,6 +154,8 @@ function viewPrice() {
     <div id="qcar" class="full qcar" ${q.delivery === 'Personal delivery' ? '' : 'hidden'}>
       <div class="f"><label for="qpc">Delivery postcode</label><div class="row" style="flex-wrap:nowrap"><input type="text" id="qpc" autocomplete="off" autocapitalize="characters" placeholder="e.g. EN1 3PL" value="${esc(q.postcode)}" style="flex:1 1 auto"><button type="button" id="qfind">Work out miles</button></div></div>
       <div class="f"><label for="qmiles">Miles there and back</label><input type="number" id="qmiles" min="0" step="0.1" inputmode="decimal" value="${esc(q.miles)}"><span class="hint" id="qmhint">From ${esc(PRICING.car.home)} to the customer and back. You can type your own miles.</span></div>
+      <div class="f"><label for="qmins">Minutes driving there</label><input type="number" id="qmins" min="0" step="1" inputmode="numeric" value="${esc(q.driveMins)}"><span class="hint">Charged at ${gbp(PRICING.car.perHour)} an hour, plus ${PRICING.car.perMile}p a mile for the drive there. You can type your own time.</span></div>
+      <label class="tick full"><input type="checkbox" id="qcc" ${q.congestion ? 'checked' : ''}>Add the London Congestion Charge (${gbp(PRICING.car.congestion)}). Weekdays 7am to 6pm, weekends and bank holidays 12pm to 6pm.</label>
       <p class="err" id="qcarErr" role="alert" hidden></p>
       <div class="f"><label for="qpetrol">Petrol price per litre</label><div class="money"><input type="number" id="qpetrol" min="0" step="0.01" inputmode="decimal" value="${(q.petrol / 100).toFixed(2)}"></div></div>
       <div class="f"><label for="qmpg">Your car's miles per gallon</label><input type="number" id="qmpg" min="1" step="1" inputmode="numeric" value="${esc(q.mpg)}"><span class="hint">Remembered on this device.</span></div>
@@ -177,7 +179,7 @@ function viewPrice() {
     if (ln) q.lines[ln.dataset.i][e.target.dataset.k] = e.target.value;
     q.wrapped = f.querySelector('#qwrap').checked; q.delivery = f.querySelector('#qdel').value; q.shapes = f.querySelector('#qshapes').value; q.customCutter = f.querySelector('#qcustom').checked;
     f.querySelector('#qcar').hidden = q.delivery !== 'Personal delivery';
-    q.postcode = f.querySelector('#qpc').value; q.miles = f.querySelector('#qmiles').value;
+    q.postcode = f.querySelector('#qpc').value; q.miles = f.querySelector('#qmiles').value; q.driveMins = f.querySelector('#qmins').value; q.congestion = f.querySelector('#qcc').checked;
     const pt = Math.round(parseFloat(f.querySelector('#qpetrol').value) * 100), mg = parseFloat(f.querySelector('#qmpg').value);
     q.petrol = pt > 0 ? pt : PRICING.car.petrol; q.mpg = mg > 0 ? mg : PRICING.car.mpg;
     if (e.target.id === 'qpetrol' || e.target.id === 'qmpg') { try { localStorage.setItem(CAR, JSON.stringify({petrol: q.petrol, mpg: q.mpg})); } catch (x) {} }
@@ -189,9 +191,10 @@ function viewPrice() {
     btn.disabled = true; btn.textContent = 'Working it out…';
     try {
       homeAt.v ||= await postcodeAt(PRICING.car.home);
-      const dest = await postcodeAt(pc), miles = roundTripMiles(homeAt.v, dest);
+      const dest = await postcodeAt(pc), miles = roundTripMiles(homeAt.v, dest), inZone = inCongestionZone(dest);
       f.querySelector('#qpc').value = dest.postcode; f.querySelector('#qmiles').value = miles;
-      f.querySelector('#qmhint').innerHTML = `About ${miles} miles from ${esc(PRICING.car.home)} to ${esc(dest.postcode)} and back. <a href="${esc(mapsUrl(dest.postcode))}" target="_blank" rel="noopener">Check the route on Google Maps</a> and type the exact miles if you like.`;
+      f.querySelector('#qmins').value = driveMinsThere(homeAt.v, dest); f.querySelector('#qcc').checked = inZone;
+      f.querySelector('#qmhint').innerHTML = `About ${miles} miles from ${esc(PRICING.car.home)} to ${esc(dest.postcode)} and back. <a href="${esc(mapsUrl(dest.postcode))}" target="_blank" rel="noopener">Check the route on Google Maps</a> and type the exact miles if you like.${inZone ? ' <b>This address is in the Congestion Charge zone</b>, so the charge has been ticked. Untick it if you deliver outside charging hours.' : ''}`;
       f.dispatchEvent(new Event('input'));
     } catch (x) { err.textContent = x.code === 'nf' ? "That postcode wasn't found. Check it and try again." : "The miles couldn't be worked out. Check your connection, or type the miles yourself."; err.hidden = false; }
     btn.disabled = false; btn.textContent = 'Work out miles';
@@ -227,13 +230,13 @@ function showQuote() {
   <details class="howto"><summary>Show how this was worked out</summary><div class="stack">
   <section class="card"><h3>What the customer pays</h3><div class="total">
     ${r.lines.map(l => row(`${l.qty} × ${esc(l.style)} at ${gbp(l.price)}`, gbp(l.total))).join('')}
-    ${r.charge.wrapping ? row('Individual wrapping', gbp(r.charge.wrapping)) : ''}${r.charge.cutters ? row('Cutters', gbp(r.charge.cutters)) : ''}${r.charge.delivery ? row(r.drive ? `Personal delivery (${r.drive.miles} miles there and back)` : esc(q.delivery), gbp(r.charge.delivery)) : ''}
+    ${r.charge.wrapping ? row('Individual wrapping', gbp(r.charge.wrapping)) : ''}${r.charge.cutters ? row('Cutters', gbp(r.charge.cutters)) : ''}${r.charge.delivery ? row(r.drive ? `Personal delivery (${r.drive.mins} mins drive there${r.drive.congestion ? ', including ' + gbp(PRICING.car.congestion) + ' Congestion Charge' : ''})` : esc(q.delivery), gbp(r.charge.delivery)) : ''}
     ${row('Total to charge', gbp(r.charge.total), 'big')}${row('Deposit to take (50%)', gbp(r.deposit))}</div>
     <p class="hint">${r.n} biscuits, so the ${TIER_NAMES[r.tier]} biscuits price is used.</p></section>
   <section class="card"><h3>What it costs you</h3><div class="total">
     ${row('Ingredients (biscuit and icing)', gbp(r.cost.ingredients))}${r.cost.toppers ? row(`Toppers (buy ${esc(sheetTxt)})`, gbp(r.cost.toppers)) : ''}
     ${row(`Boxes (${boxTxt})`, gbp(r.cost.boxes))}${r.cost.bagsBows ? row('Bows', gbp(r.cost.bagsBows)) : ''}
-    ${r.cost.cutters ? row('Cutters', gbp(r.cost.cutters)) : ''}${r.cost.postage ? row(r.drive ? `Petrol (${r.drive.miles} miles at ${(r.drive.perMile).toFixed(1)}p a mile)` : 'Postage', gbp(r.cost.postage)) : ''}
+    ${r.cost.cutters ? row('Cutters', gbp(r.cost.cutters)) : ''}${r.cost.postage ? row(r.drive ? `Petrol (${r.drive.miles} miles at ${(r.drive.perMile).toFixed(1)}p a mile)${r.drive.congestion ? ' and Congestion Charge' : ''}` : 'Postage', gbp(r.cost.postage)) : ''}
     ${row('Total costs', gbp(r.cost.total), 'big')}${row('Profit (money you keep)', `<span class="${r.profit < 0 ? 'neg' : ''}">${gbp(r.profit)}</span>`, 'big')}</div></section>
   </div></details>`;
   if (wasOpen) out.querySelector('details.howto').open = true;

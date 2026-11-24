@@ -136,8 +136,11 @@ const PRICING = {
   wrap: 20, firstCutter: 800, extraCutter: 400, customCutter: 1200,
   delivery: {'Collection': 0, 'Personal delivery': 0, 'Royal Mail – small': 900, 'Royal Mail – medium': 1200, 'Royal Mail – large': 1800},
   // Personal delivery: petrol in pence per litre, car miles per gallon (UK), and the extra distance roads add to a straight line.
-  // Customer pays 74.4p a mile there and back (so the E10 6EN trip, 12.9 miles, is the £9.60 Tina charged), rounded up to 10p, £5 minimum.
-  car: {home: 'N9 7LJ', petrol: 179, mpg: 40, roadFactor: 1.3, minCharge: 500, perMile: 74.4},
+  // Customer pays for the drive there: £14.80 an hour (London Living Wage) + 55p a mile (HMRC rate), to the nearest £1, £5 minimum,
+  // plus the £18 London Congestion Charge when the delivery is in the zone during charging hours. Same formula as the website quote form.
+  // Driving speeds (miles from central London → mph) make busy areas take longer.
+  car: {home: 'N9 7LJ', petrol: 179, mpg: 40, roadFactor: 1.3, minCharge: 500, perMile: 55, perHour: 1480, congestion: 1800,
+    speeds: [[2.5, 9], [7, 14], [Infinity, 30]]},
   base: {flour: [80, 120], sugar: [225, 150], vitalite: [200, 44], vanilla: [899, 300]},
   icing: {fondant: [290, 40], royal: [265, 60]},
   toppers: {'Toppers 12 x 7cm': [834, 12], 'Toppers 6 x 7cm': [761, 6], 'Toppers custom shape': [551, 9]},
@@ -155,6 +158,22 @@ function roundTripMiles(a, b, roadFactor = PRICING.car.roadFactor) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
   return Math.round(2 * R * Math.asin(Math.sqrt(h)) * roadFactor * 2 * 10) / 10;
 }
+// Central London Congestion Charge zone (approximate outline of the Inner Ring Road), as [lat, lon].
+const CCZ = [[51.5205,-0.1640],[51.5225,-0.1570],[51.5238,-0.1440],[51.5275,-0.1320],[51.5305,-0.1230],[51.5320,-0.1058],[51.5257,-0.0877],[51.5235,-0.0775],[51.5150,-0.0720],[51.5100,-0.0715],[51.5010,-0.0750],[51.4935,-0.0800],[51.4950,-0.1005],[51.4870,-0.1180],[51.4880,-0.1275],[51.4960,-0.1440],[51.5027,-0.1527],[51.5130,-0.1585]];
+function inCongestionZone(p) {
+  let inside = false;
+  for (let i = 0, j = CCZ.length - 1; i < CCZ.length; j = i++) {
+    const [yi, xi] = CCZ[i], [yj, xj] = CCZ[j];
+    if ((yi > p.lat) !== (yj > p.lat) && p.lon < (xj - xi) * (p.lat - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+// Estimated minutes to drive from home to the customer (one way), slower in busy parts of London.
+function driveMinsThere(home, dest, cfg = PRICING) {
+  const oneWay = roundTripMiles(home, dest) / 2, fromCentre = roundTripMiles({lat: 51.5074, lon: -0.1278}, dest, 1) / 2;
+  const mph = inCongestionZone(dest) ? cfg.car.speeds[0][1] : cfg.car.speeds.find(([within]) => fromCentre <= within)[1];
+  return Math.round(oneWay / mph * 60);
+}
 function quote(q, cfg = PRICING) {
   const lines = (q.lines || []).map(l => ({...l, qty: Math.max(0, Math.floor(+l.qty || 0))})).filter(l => l.qty && cfg.styles[l.style]);
   const n = lines.reduce((t, l) => t + l.qty, 0);
@@ -169,7 +188,8 @@ function quote(q, cfg = PRICING) {
   };
   const drive = q.delivery === 'Personal delivery', miles = drive ? Math.max(0, +q.miles || 0) : 0;
   const petrol = q.petrol > 0 ? +q.petrol : cfg.car.petrol, mpg = q.mpg > 0 ? +q.mpg : cfg.car.mpg, fuel = fuelPence(miles, petrol, mpg);
-  if (drive) charge.delivery = Math.max(cfg.car.minCharge, Math.ceil(Math.round(miles * cfg.car.perMile) / 10) * 10);
+  const driveMins = drive ? (+q.driveMins > 0 ? +q.driveMins : Math.round(miles / 2 / cfg.car.speeds[2][1] * 60)) : 0, cc = drive && !!q.congestion;
+  if (drive) charge.delivery = Math.max(cfg.car.minCharge, Math.round((miles / 2 * cfg.car.perMile + driveMins / 60 * cfg.car.perHour) / 100) * 100) + (cc ? cfg.car.congestion : 0);
   charge.total = charge.biscuits + charge.wrapping + charge.cutters + charge.delivery;
   const base = Object.values(cfg.base).reduce((t, c) => t + each(c), 0);
   const byTopper = {}; lines.forEach(l => { if (cfg.toppers[l.topper]) byTopper[l.topper] = (byTopper[l.topper] || 0) + l.qty; });
@@ -184,7 +204,7 @@ function quote(q, cfg = PRICING) {
     toppers: sheets.reduce((t, s) => t + s.sheets * cfg.toppers[s.topper][0], 0),
     boxes: boxes.big * each(cfg.bigBox) + boxes.large * each(cfg.largeBox) + boxes.small * each(cfg.smallBox),
     bagsBows: q.wrapped ? n * each(cfg.bow) : 0,
-    cutters: charge.cutters, postage: drive ? fuel : charge.delivery,
+    cutters: charge.cutters, postage: drive ? fuel + (cc ? cfg.car.congestion : 0) : charge.delivery,
   };
   const costTotal = Math.round(Object.values(cost).reduce((t, v) => t + v, 0));
   Object.keys(cost).forEach(k => cost[k] = Math.round(cost[k]));
@@ -192,8 +212,8 @@ function quote(q, cfg = PRICING) {
   cost.total = costTotal;
   const minutes = n * (n >= cfg.tiers[1] ? cfg.bakeMinsBig : cfg.bakeMins) + lines.reduce((t, l) => t + l.qty * cfg.styles[l.style].mins, 0) + (q.wrapped ? n : 0);
   const profit = charge.total - costTotal, hours = minutes / 60, perHour = hours ? Math.round(profit / hours) : 0;
-  return {n, tier, lines: priced, boxes, drive: drive ? {miles, petrol, mpg, perMile: fuelPence(1, petrol, mpg), fuel: Math.round(fuel)} : null, charge, deposit: Math.round(charge.total / 2), cost, sheets, profit, minutes, hours, perHour,
+  return {n, tier, lines: priced, boxes, drive: drive ? {miles, mins: driveMins, congestion: cc, petrol, mpg, perMile: fuelPence(1, petrol, mpg), fuel: Math.round(fuel)} : null, charge, deposit: Math.round(charge.total / 2), cost, sheets, profit, minutes, hours, perHour,
     verdict: !n ? 'empty' : n < cfg.minOrder ? 'min' : perHour >= cfg.hourly ? 'good' : 'low'};
 }
 const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-if (typeof module !== 'undefined') module.exports = {sendsOut, oldPostDate, CAL, calEvents, calReminders, calSig, calOrder, SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays, PRICING, quote, fuelPence, roundTripMiles, ucDefault, ucShift, ucPeriod};
+if (typeof module !== 'undefined') module.exports = {sendsOut, oldPostDate, CAL, calEvents, calReminders, calSig, calOrder, SOURCES, P, gbp, sums, jobs, month, calUrl, handover, dueDate, csvCell, addDays, PRICING, quote, fuelPence, roundTripMiles, inCongestionZone, driveMinsThere, ucDefault, ucShift, ucPeriod};
