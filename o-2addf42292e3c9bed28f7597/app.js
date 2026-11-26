@@ -5,9 +5,11 @@ const S = {orders: [], expenses: [], db: null, ready: {o: false, e: false}, stal
 const STATUSES = ['Confirmed', 'In progress', 'Ready', 'Completed', 'Cancelled'];
 const CATS = ['Ingredients', 'Packaging', 'Equipment', 'Delivery and travel', 'Marketing', 'Fees', 'Other'];
 const UC_TYPE = {Ingredients: 'Goods and materials', Packaging: 'Goods and materials', Equipment: 'Office and equipment costs', Marketing: 'Marketing and advertising'};
-const DRAFT = 'tina-order-draft';
+const DRAFT = 'tina-order-draft', EDIT_DRAFT = 'tina-order-edit-', ENQ_DRAFT = 'tina-enq-draft-', MAIL_OK = 'tina-mail-ok';
+const getDraft = k => { try { return JSON.parse(localStorage.getItem(k)) || null; } catch (e) { return null; } };
+const putDraft = (k, v) => { try { v ? localStorage.setItem(k, JSON.stringify(v)) : localStorage.removeItem(k); return true; } catch (e) { return false; } };
 const CAL_ID = '00000000-0000-4000-8000-0000000ca1e0', CAL_LAST = 'tina-cal-synced', PAY_ID = '00000000-0000-4000-8000-0000000a1d00';
-const CAL_SCRIPT = "// Tina's Order Book -> Google Calendar. Paste all of this into a new Apps Script project.\nconst SECRET = '__SECRET__';\nconst CAL_NAME = \"Tina's Orders\";\nconst TZ = 'Europe/London';\n\nfunction doGet() { return out_({ok: true, name: CAL_NAME}); }\n\nfunction doPost(e) {\n  let body;\n  try { body = JSON.parse(e.postData.contents); } catch (x) { return out_({ok: false, error: 'bad request'}); }\n  if (body.secret !== SECRET) return out_({ok: false, error: 'wrong secret'});\n  const lock = LockService.getScriptLock();\n  lock.waitLock(60000);\n  try {\n    const cal = calendar_(), byOrder = {};\n    cal.getEvents(new Date(2020, 0, 1), new Date(2040, 0, 1)).forEach(function (ev) {\n      const id = ev.getTag('tbOrder');\n      if (id) (byOrder[id] = byOrder[id] || []).push(ev);\n    });\n    const seen = {};\n    let changed = 0;\n    (body.orders || []).forEach(function (o) {\n      seen[o.id] = true;\n      const old = byOrder[o.id] || [], events = o.events || [];\n      if (old.length === events.length && old.every(function (ev) { return ev.getTag('tbSig') === o.sig; })) return;\n      old.forEach(function (ev) { ev.deleteEvent(); });\n      events.forEach(function (x) {\n        const start = Utilities.parseDate(x.date + ' ' + x.time, TZ, 'yyyy-MM-dd HH:mm');\n        const ev = cal.createEvent(x.title, start, new Date(start.getTime() + x.mins * 60000), {description: x.details || '', location: x.location || ''});\n        ev.setTag('tbOrder', o.id); ev.setTag('tbSig', o.sig);\n        ev.removeAllReminders();\n        (x.reminders || []).forEach(function (m) { ev.addPopupReminder(m); });\n      });\n      changed++;\n    });\n    if (body.full) Object.keys(byOrder).forEach(function (id) {\n      if (!seen[id]) { byOrder[id].forEach(function (ev) { ev.deleteEvent(); }); changed++; }\n    });\n    return out_({ok: true, changed: changed});\n  } catch (x) {\n    return out_({ok: false, error: String(x && x.message || x)});\n  } finally {\n    lock.releaseLock();\n  }\n}\n\nfunction calendar_() {\n  const found = CalendarApp.getCalendarsByName(CAL_NAME)[0];\n  return found || CalendarApp.createCalendar(CAL_NAME, {color: CalendarApp.Color.PINK, timeZone: TZ});\n}\n\n// Press Run on this once in the editor so Google asks for permission to use your calendar.\nfunction setUp() { calendar_(); }\n\nfunction out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }\n";
+const CAL_SCRIPT = "// Tina's Order Book -> Google Calendar and Gmail. Paste all of this into your Apps Script project.\nconst SECRET = '__SECRET__';\nconst CAL_NAME = \"Tina's Orders\";\nconst TZ = 'Europe/London';\n\nfunction doGet() { return out_({ok: true, name: CAL_NAME, mail: true}); }\n\nfunction doPost(e) {\n  let body;\n  try { body = JSON.parse(e.postData.contents); } catch (x) { return out_({ok: false, error: 'bad request'}); }\n  if (body.secret !== SECRET) return out_({ok: false, error: 'wrong secret'});\n  if (body.action === 'ping') return out_({ok: true, mail: true});\n  if (body.action === 'mail') return mail_(body);\n  const lock = LockService.getScriptLock();\n  lock.waitLock(60000);\n  try {\n    const cal = calendar_(), byOrder = {};\n    cal.getEvents(new Date(2020, 0, 1), new Date(2040, 0, 1)).forEach(function (ev) {\n      const id = ev.getTag('tbOrder');\n      if (id) (byOrder[id] = byOrder[id] || []).push(ev);\n    });\n    const seen = {};\n    let changed = 0;\n    (body.orders || []).forEach(function (o) {\n      seen[o.id] = true;\n      const old = byOrder[o.id] || [], events = o.events || [];\n      if (old.length === events.length && old.every(function (ev) { return ev.getTag('tbSig') === o.sig; })) return;\n      old.forEach(function (ev) { ev.deleteEvent(); });\n      events.forEach(function (x) {\n        const start = Utilities.parseDate(x.date + ' ' + x.time, TZ, 'yyyy-MM-dd HH:mm');\n        const ev = cal.createEvent(x.title, start, new Date(start.getTime() + x.mins * 60000), {description: x.details || '', location: x.location || ''});\n        ev.setTag('tbOrder', o.id); ev.setTag('tbSig', o.sig);\n        ev.removeAllReminders();\n        (x.reminders || []).forEach(function (m) { ev.addPopupReminder(m); });\n      });\n      changed++;\n    });\n    if (body.full) Object.keys(byOrder).forEach(function (id) {\n      if (!seen[id]) { byOrder[id].forEach(function (ev) { ev.deleteEvent(); }); changed++; }\n    });\n    return out_({ok: true, changed: changed});\n  } catch (x) {\n    return out_({ok: false, error: String(x && x.message || x)});\n  } finally {\n    lock.releaseLock();\n  }\n}\n\nfunction calendar_() {\n  const found = CalendarApp.getCalendarsByName(CAL_NAME)[0];\n  return found || CalendarApp.createCalendar(CAL_NAME, {color: CalendarApp.Color.PINK, timeZone: TZ});\n}\n\n// Sends an email from your Gmail, with any pictures attached.\nfunction mail_(b) {\n  try {\n    const to = String(b.to || '').trim();\n    if (!/^[^\\s@,;]+@[^\\s@,;]+\\.[^\\s@,;]+$/.test(to)) return out_({ok: false, error: 'bad email address'});\n    const files = (b.attachments || []).slice(0, 8).map(function (f) {\n      return Utilities.newBlob(Utilities.base64Decode(f.data), f.type || 'image/jpeg', f.name || 'picture.jpg');\n    });\n    GmailApp.sendEmail(to, String(b.subject || \"Tina's Bespoke Treats\").slice(0, 200), String(b.body || ''), {name: \"Tina's Bespoke Treats\", attachments: files});\n    return out_({ok: true, sent: true});\n  } catch (x) {\n    return out_({ok: false, error: String(x && x.message || x)});\n  }\n}\n\n// Press Run on this once in the editor so Google asks for permission to use your calendar and send email.\nfunction setUp() { calendar_(); GmailApp.getAliases(); }\n\nfunction out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }\n";
 const today = () => iso(new Date());
 S.ym = today().slice(0, 7); S.year = today().slice(0, 4);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -201,6 +203,10 @@ function viewEnquiry() {
   if (!e) { if (S.enqLoaded) location.hash = '#enquiries'; else app.innerHTML = '<p class="muted">Loading the enquiry…</p>'; return; }
   S.enqTyping = false;
   const r = rawOf(e), qs = e.quotes || [], st = enqSt(e), files = e.files || [];
+  const dKey = ENQ_DRAFT + e.id, fresh = enqMessage(e);
+  let draft = getDraft(dKey) || {};
+  if (draft.msg != null && draft.msg === draft.base && draft.base !== fresh) { draft.msg = null; draft.base = null; }
+  const draftStale = draft.msg != null && draft.base !== fresh;
   const allergy = r.allergy === 'yes' ? [r.allergyDetails, r.mayContain].filter(Boolean).join(' · ') : '';
   const insta = (e.answers || []).flatMap(g => g.rows || []).find(x => x[0] === 'Instagram');
   const linkedOrder = e.order_id && S.orders.find(o => o.id === e.order_id);
@@ -219,20 +225,28 @@ function viewEnquiry() {
     <div class="row"><button class="primary" id="ePrice">Work out a price with Price it</button></div>
     <details class="howto" id="qAdd"><summary>Type a quote in yourself</summary><form id="qf" class="grid" novalidate>
       ${moneyInput('qPrice', '', 'Total price')}${moneyInput('qDel', '', 'Of which delivery', 'Leave blank if collection')}
-      <div class="f" style="grid-column:1/-1"><label for="qInc">What's included</label><textarea id="qInc" rows="3" placeholder="e.g. 30 hand-piped biscuits, individually wrapped with gold bows, collection">${esc(enqQty(e) ? enqQty(e) + ' × ' + (e.product || 'biscuits').toLowerCase() : '')}</textarea></div>
+      <div class="f" style="grid-column:1/-1"><label for="qInc">What's included</label><textarea id="qInc" rows="3" placeholder="e.g. 30 hand-piped biscuits, individually wrapped with gold bows, collection">${esc(draft.qInc ?? (enqQty(e) ? enqQty(e) + ' × ' + (e.product || 'biscuits').toLowerCase() : ''))}</textarea></div>
       <div class="f" style="grid-column:1/-1"><label for="qNote">Note to the customer (optional)</label><input id="qNote" placeholder="e.g. A simpler design would bring this down to £70"></div>
       <p class="err" id="qErr" role="alert" hidden></p><div><button class="primary" type="submit">Save quote</button></div></form></details>
   </section>
 
   <section class="card"><h3>Reply to ${esc(firstName(e))}</h3>
-    <p class="hint">Check the message, change anything you like, then send it the way they contacted you.</p>
-    <textarea id="eMsg" rows="11" aria-label="Message to the customer">${esc(enqMessage(e))}</textarea>
-    <div class="row">${e.email ? '<button id="eGmail">Send from Gmail</button><button id="eMail">Send from email app</button>' : ''}${waNumber(e.phone) ? '<button id="eWa">Send on WhatsApp</button>' : ''}<button id="eCopy">Copy for Instagram</button></div>
+    <p class="hint">Check the message and change anything you like. What you type is kept, even if you leave this page.</p>
+    ${draftStale ? `<div class="notice warn"><span>Your quote has changed since you started typing this message.</span><button type="button" id="eFresh">Use the new quote message</button></div>` : ''}
+    ${e.email ? `<div class="f"><label for="eSubj">Subject</label><input type="text" id="eSubj" value="${esc(draft.subject || "Your quote from Tina's Bespoke Treats")}"></div>` : ''}
+    <textarea id="eMsg" rows="11" aria-label="Message to the customer">${esc(draft.msg ?? enqMessage(e))}</textarea>
+    <span class="hint" id="eDrafted">${draft.msg != null ? 'Your message is saved on this device.' : ''}</span>
+    ${e.email ? `<div class="stack" style="gap:6px"><h3>Pictures sent with this email</h3>
+      <div class="thumbs" id="mailPics"></div>
+      <p class="hint" id="mailPicHint"></p>
+      <div class="row"><label class="btn" for="mailPick" tabindex="0" id="mailAdd">Add pictures</label><input type="file" id="mailPick" accept="image/*" multiple hidden></div></div>
+    <div class="row"><button class="primary big-btn" id="eSend">Send email to ${esc(e.email)}</button></div><p class="err" id="eSendErr" role="alert" hidden></p>` : `<p class="hint">There's no email address for ${esc(firstName(e))}, so this can't be sent from the order book. Add their email to send it from here.</p>`}
+    <div class="row">${waNumber(e.phone) ? '<button id="eWa">Send on WhatsApp</button>' : ''}<button id="eCopy">Copy for Instagram</button></div>
     <div class="paybox"><h3>Payment details picture</h3>
       ${S.payImage ? `<div class="row" style="align-items:center"><div class="thumb" style="width:88px"><img id="payImg" alt="Your payment details"></div>
-        <div class="stack" style="gap:6px;flex:1"><span class="hint">Send this with your quote so the customer knows how to pay.</span>
-        <div class="row"><button class="primary" id="payShare">Share message and picture</button><button id="payDl">Save picture</button><label class="link small" for="payPick" tabindex="0">Change picture</label></div></div></div>`
-      : `<p class="hint">Add the picture with your bank details once, and you can send it with every quote.</p><label class="btn" for="payPick" tabindex="0">Add payment details picture</label>`}
+        <div class="stack" style="gap:6px;flex:1"><span class="hint">Attached to every quote email by itself.</span>
+        <div class="row"><label class="link small" for="payPick" tabindex="0">Change picture</label></div></div></div>`
+      : `<p class="hint">Add the picture with your bank details once, and it's attached to every quote email by itself.</p><label class="btn" for="payPick" tabindex="0">Add payment details picture</label>`}
       <input type="file" id="payPick" accept="image/*" hidden>
     </div>
   </section>
@@ -241,7 +255,7 @@ function viewEnquiry() {
 
   <section class="card"><h3>What they asked for</h3>${(e.answers || []).map(g => `<div class="ans-group"><h4>${esc(g.title === 'Check and send' ? 'Other details' : g.title)}</h4><dl>${(g.rows || []).filter(x => !/accurate|consent|Agreed to allergy|postage notice/i.test(x[0])).map(x => `<dt>${esc(x[0])}</dt><dd>${esc(x[1]).replace(/https:\/\/[^\s<]+/g, u => `<a href="${u}" target="_blank" rel="noopener">${/\.(jpe?g|png|gif|webp|heic)$/i.test(u) ? 'View photo' : 'Open link'}</a>`)}</dd>`).join('')}</dl></div>`).join('') || '<p class="muted">No details.</p>'}</section>
   ${files.length ? `<section class="card"><h3>Photos and files (${files.length})</h3><div class="thumbs" id="eImgs"></div></section>` : ''}
-  <section class="card"><h3>Your notes</h3><textarea id="eNotes" rows="4" placeholder="Anything to remember, e.g. called her on Tuesday, she'll confirm by Friday">${esc(e.notes || '')}</textarea><span class="hint" id="eNoteSaved"></span></section>
+  <section class="card"><h3>Your notes</h3><textarea id="eNotes" rows="4" placeholder="Anything to remember, e.g. called her on Tuesday, she'll confirm by Friday">${esc(draft.notes ?? e.notes ?? '')}</textarea><span class="hint" id="eNoteSaved"></span></section>
   <div class="row" id="edelrow"><button class="danger" id="eDel">Delete enquiry</button></div>`;
 
   const box = app.querySelector('#eImgs');
@@ -249,10 +263,20 @@ function viewEnquiry() {
     const els = files.map(f => { const w = document.createElement('div'); w.className = 'thumb'; if (/\.(pdf|svg)$/i.test(f.path)) { const a = document.createElement('a'); a.textContent = f.name || 'File'; a.target = '_blank'; a.rel = 'noopener'; w.append(a); box.append(w); return a; } const i = new Image(); i.alt = f.label || 'Customer photo'; i.onclick = () => i.src && lightbox(i.src); w.append(i); box.append(w); return i; });
     TB.signedFrom(ENQ_BUCKET, files.map(f => f.path)).then(m => files.forEach((f, n) => { if (!m[f.path]) return; if (els[n].tagName === 'A') els[n].href = m[f.path]; else els[n].src = m[f.path]; })).catch(() => toast("Photos couldn't load. Check your connection."));
   }
-  app.querySelectorAll('#qf input, #qf textarea, #eMsg, #eNotes').forEach(el => el.addEventListener('input', () => { S.enqTyping = true; }));
+  ['qPrice', 'qDel', 'qNote'].forEach(k => { const el = app.querySelector('#' + k); if (el && draft[k] != null) el.value = draft[k]; });
+  if (draft.qPrice || draft.qDel || draft.qNote || draft.qInc != null) app.querySelector('#qAdd').open = true;
+  const keepDraft = () => {
+    const v = k => app.querySelector('#' + k)?.value;
+    const msgNow = v('eMsg'), d = {msg: msgNow === fresh && !draft.msg ? null : msgNow, base: draft.msg != null && msgNow !== fresh ? (draft.base ?? fresh) : fresh, subject: v('eSubj'), notes: v('eNotes'), qPrice: v('qPrice'), qDel: v('qDel'), qInc: v('qInc'), qNote: v('qNote')};
+    draft = d; const ok = putDraft(dKey, d); const h = app.querySelector('#eDrafted'); if (h && ok) h.textContent = 'Your message is saved on this device.';
+  };
+  let noteTimer;
+  app.querySelectorAll('#qf input, #qf textarea, #eMsg, #eNotes, #eSubj').forEach(el => el.addEventListener('input', () => { S.enqTyping = true; keepDraft(); }));
+  app.querySelector('#eNotes').addEventListener('input', () => { clearTimeout(noteTimer); noteTimer = setTimeout(async () => { const n = app.querySelector('#eNotes'); if (n && await enqSave(e.id, {notes: n.value})) { const s = app.querySelector('#eNoteSaved'); if (s) s.textContent = 'Notes saved'; } }, 1200); });
+  app.querySelector('#eFresh')?.addEventListener('click', () => { app.querySelector('#eMsg').value = fresh; draft.msg = null; draft.base = fresh; putDraft(dKey, {...draft, msg: null, base: fresh}); app.querySelector('#eFresh').closest('.notice').remove(); toast('Message updated with the new quote'); });
   app.querySelector('#est').onchange = ev => enqSave(e.id, {status: ev.target.value}, 'Status changed to ' + ENQ_STATUS[ev.target.value]);
   const notes = app.querySelector('#eNotes');
-  notes.onchange = async () => { if (await enqSave(e.id, {notes: notes.value})) app.querySelector('#eNoteSaved').textContent = 'Notes saved'; };
+  notes.onchange = async () => { if (await enqSave(e.id, {notes: notes.value})) { const s = app.querySelector('#eNoteSaved'); if (s) s.textContent = 'Notes saved'; } };
   const saveQuotes = async (list, patch, msg) => { if (await enqSave(e.id, {quotes: list, ...patch}, msg)) viewEnquiry(); };
   app.querySelectorAll('[data-acc]').forEach(b => b.onclick = () => saveQuotes(qs.map((q, i) => ({...q, accepted: i === +b.dataset.acc})), {status: 'confirmed'}, 'Marked as accepted'));
   app.querySelectorAll('[data-delq]').forEach(b => b.onclick = () => saveQuotes(qs.filter((_, i) => i !== +b.dataset.delq), qs.length === 1 ? {status: 'new'} : {}, 'Quote removed'));
@@ -261,6 +285,7 @@ function viewEnquiry() {
     const price = app.querySelector('#qPrice').value, inc = app.querySelector('#qInc').value.trim(), err = app.querySelector('#qErr');
     if (!(P(price) > 0)) { err.textContent = 'Add the total price.'; err.hidden = false; return; }
     if (!inc) { err.textContent = "Add what's included."; err.hidden = false; return; }
+    putDraft(dKey, {...draft, qPrice: null, qDel: null, qInc: null, qNote: null});
     saveQuotes([...qs, {date: today(), price: (P(price) / 100).toFixed(2), delivery: P(app.querySelector('#qDel').value) ? (P(app.querySelector('#qDel').value) / 100).toFixed(2) : '', includes: inc, note: app.querySelector('#qNote').value.trim(), qty: enqQty(e)}], {status: 'quoted'}, 'Quote saved. The reply message has been updated.');
   };
   app.querySelector('#ePrice').onclick = () => {
@@ -270,8 +295,50 @@ function viewEnquiry() {
     S.enqQuoting = e.id; location.hash = '#price';
   };
   const msg = () => app.querySelector('#eMsg').value;
-  app.querySelector('#eMail')?.addEventListener('click', () => { location.href = 'mailto:' + encodeURIComponent(e.email) + '?subject=' + encodeURIComponent("Your quote from Tina's Bespoke Treats") + '&body=' + encodeURIComponent(msg()); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
-  app.querySelector('#eGmail')?.addEventListener('click', () => { window.open('https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(e.email) + '&su=' + encodeURIComponent("Your quote from Tina's Bespoke Treats") + '&body=' + encodeURIComponent(msg()), '_blank', 'noopener'); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
+  const extra = [], picGrid = app.querySelector('#mailPics');
+  let payBlob = null;
+  let reading = 0;
+  const drawPics = () => {
+    if (!picGrid || !picGrid.isConnected) return;
+    picGrid.replaceChildren();
+    if (S.payImage) { const w = document.createElement('div'); w.className = 'thumb'; const i = new Image(); i.alt = 'Payment details'; i.id = 'mailPayImg'; if (payBlob) i.src = URL.createObjectURL(payBlob); w.append(i); picGrid.append(w); }
+    extra.forEach(it => { const w = document.createElement('div'); w.className = 'thumb'; const i = new Image(); i.alt = 'Picture to send'; i.src = it.url; const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', 'Remove picture');
+      x.onclick = () => { URL.revokeObjectURL(it.url); extra.splice(extra.indexOf(it), 1); drawPics(); }; w.append(i, x); picGrid.append(w); });
+    const n = (S.payImage ? 1 : 0) + extra.length;
+    app.querySelector('#mailPicHint').textContent = n ? (S.payImage ? 'Your payment details picture is attached by itself.' : '') + (extra.length ? ' ' + extra.length + ' more picture' + (extra.length > 1 ? 's' : '') + ' added.' : '') : 'No pictures. Add your payment details picture below so it goes with every quote.';
+    app.querySelector('#mailAdd').hidden = extra.length >= 5;
+  };
+  drawPics();
+  app.querySelector('#mailPick')?.addEventListener('change', async ev => {
+    const fl = [...ev.target.files].slice(0, 5 - extra.length); ev.target.value = '';
+    reading++; const sb = app.querySelector('#eSend'); if (sb) sb.disabled = true; app.querySelector('#mailPicHint').textContent = 'Adding pictures…';
+    for (const f of fl) { try { const blob = await shrink(f); extra.push({blob, url: URL.createObjectURL(blob)}); } catch (x) { toast("One picture couldn't be read. Try a JPG or PNG."); } }
+    reading--; if (sb && !reading) sb.disabled = false;
+    drawPics();
+  });
+  const b64 = blob => new Promise((ok, no) => { const rd = new FileReader(); rd.onload = () => ok(String(rd.result).split(',')[1]); rd.onerror = no; rd.readAsDataURL(blob); });
+  app.querySelector('#eSend')?.addEventListener('click', async ev => {
+    const btn = ev.target, err = app.querySelector('#eSendErr'), fail = m => { err.textContent = m; err.hidden = false; btn.disabled = false; btn.textContent = 'Send email to ' + e.email; };
+    err.hidden = true;
+    if (!S.cal) return fail('Connect your Google account first: press Calendar and email at the bottom of the page, then try again.');
+    if (!msg().trim()) return fail('Write a message first.');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      if (S.payImage && !payBlob) { const m = await TB.signedFrom(ENQ_BUCKET, [S.payImage]); payBlob = await (await fetch(m[S.payImage])).blob(); }
+      const attachments = [];
+      if (payBlob) attachments.push({name: "Tina's Bespoke Treats payment details.jpg", type: 'image/jpeg', data: await b64(payBlob)});
+      for (let i = 0; i < extra.length; i++) attachments.push({name: 'Picture ' + (i + 1) + '.jpg', type: 'image/jpeg', data: await b64(extra[i].blob)});
+      const d = await calPost(S.cal, {action: 'mail', to: e.email, subject: app.querySelector('#eSubj').value.trim() || "Your quote from Tina's Bespoke Treats", body: msg(), attachments});
+      if (!d.sent) { putDraft(MAIL_OK, null); return fail('Your Google connection needs a quick update before it can send emails. Press Calendar and email at the bottom of the page and follow the steps there.'); }
+    } catch (x) { return fail(x.message === 'wrong secret' ? 'Your Google connection needs updating. Press Calendar and email at the bottom of the page.' : "The email didn't send: " + x.message + '. Check your connection and try again. Your message is still here.'); }
+    putDraft(dKey, null);
+    S.enqTyping = false;
+    const when = new Date().toLocaleString('en-GB', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
+    const notes = ((app.querySelector('#eNotes').value || '').trim() + '\nEmail sent ' + when + (extra.length || payBlob ? ' with ' + (extra.length + (payBlob ? 1 : 0)) + ' picture(s)' : '') + '.').trim();
+    await enqSave(e.id, {notes, ...(st === 'new' && qs.length ? {status: 'quoted'} : {})});
+    toast('Email sent to ' + e.email);
+    viewEnquiry();
+  });
   app.querySelector('#eWa')?.addEventListener('click', () => { window.open('https://wa.me/' + waNumber(e.phone) + '?text=' + encodeURIComponent(msg()), '_blank', 'noopener'); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
   app.querySelector('#eCopy').onclick = async () => { try { await navigator.clipboard.writeText(msg()); toast('Message copied. Paste it into their Instagram messages.'); } catch (x) { const t = app.querySelector('#eMsg'); t.select(); toast('Select the message and copy it.'); } };
   const payPick = app.querySelector('#payPick');
@@ -282,17 +349,8 @@ function viewEnquiry() {
     catch (x) { toast("The picture didn't save. Check your connection and try again."); }
   };
   if (S.payImage) {
-    let payBlob = null;
-    TB.signedFrom(ENQ_BUCKET, [S.payImage]).then(async m => { const u = m[S.payImage]; if (!u) return; app.querySelector('#payImg').src = u; payBlob = await (await fetch(u)).blob(); }).catch(() => {});
-    const payFile = () => payBlob && new File([payBlob], "Tina's Bespoke Treats payment details.jpg", {type: 'image/jpeg'});
+    TB.signedFrom(ENQ_BUCKET, [S.payImage]).then(async m => { const u = m[S.payImage]; if (!u) return; app.querySelector('#payImg').src = u; payBlob = await (await fetch(u)).blob(); drawPics(); }).catch(() => {});
     app.querySelector('#payImg').onclick = ev => ev.target.src && lightbox(ev.target.src);
-    app.querySelector('#payDl').onclick = () => { const f = payFile(); if (!f) return toast('The picture is still loading. Try again in a moment.'); const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
-    app.querySelector('#payShare').onclick = async () => {
-      const f = payFile(); if (!f) return toast('The picture is still loading. Try again in a moment.');
-      const data = {text: msg(), files: [f]};
-      if (navigator.canShare && navigator.canShare(data)) { try { await navigator.share(data); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); } catch (x) {} }
-      else toast("Sharing a picture works on your phone. On a laptop, press Save picture and attach it to your email.");
-    };
   }
   app.querySelector('#eOrderOpen')?.addEventListener('click', () => { S.open = e.order_id; location.hash = '#order'; });
   app.querySelector('#eOrder')?.addEventListener('click', () => {
@@ -633,10 +691,10 @@ function viewForm(o) {
     nameIn.addEventListener('keydown', e => { if (e.key === 'Escape') hits.hidden = true; });
     f.addEventListener('focusin', e => { if (e.target !== nameIn && !hits.contains(e.target)) hits.hidden = true; });
   }
-  f.addEventListener('input', () => { const d = sync(); S.dirty = true; if (!editing) { try { localStorage.setItem(DRAFT, JSON.stringify(d)); f.querySelector('#drafted').textContent = 'Draft kept on this device'; } catch (e) {} } });
+  f.addEventListener('input', () => { const d = sync(); S.dirty = true; if (putDraft(editing ? EDIT_DRAFT + o.id : DRAFT, editing ? {...d, _base: o.updatedAt || ''} : d)) f.querySelector('#drafted').textContent = 'Your changes are kept on this device until you save'; });
   f.addEventListener('change', sync);
   f.querySelector('#addLine').onclick = () => addLine();
-  f.querySelector('#cancel').onclick = () => { try { if (!editing) { localStorage.removeItem(DRAFT); localStorage.removeItem(FROM_ENQ); } } catch (e) {} S.dirty = false; location.hash = editing ? '#order' : '#orders'; };
+  f.querySelector('#cancel').onclick = () => { try { if (!editing) { localStorage.removeItem(DRAFT); localStorage.removeItem(FROM_ENQ); } else localStorage.removeItem(EDIT_DRAFT + o.id); } catch (e) {} S.dirty = false; location.hash = editing ? '#order' : '#orders'; };
   f.addEventListener('submit', async ev => {
     ev.preventDefault();
     const d = read(), e = f.querySelector('#ferr'), s = sums({...o, ...d});
@@ -658,7 +716,7 @@ function viewForm(o) {
     } catch (x) { btn.disabled = false; return fail("The images didn't upload, so the order hasn't been saved. Check your connection and press Save again."); }
     try {
       await ref.set({...keep, ...d, images: [...imgs.kept, ...imgs.pending.map(i => i.path)], customerName: d.customerName.trim(), status: o.status || 'Confirmed', createdAt: o.createdAt || now, updatedAt: now});
-      try { localStorage.removeItem(DRAFT); } catch (x) {}
+      try { localStorage.removeItem(editing ? EDIT_DRAFT + o.id : DRAFT); } catch (x) {}
       TB.removeFiles(imgs.removed).catch(() => {});
       try { const fe = !editing && localStorage.getItem(FROM_ENQ); if (fe) { localStorage.removeItem(FROM_ENQ); enqSave(fe, {order_id: ref.id, status: 'confirmed'}); } } catch (x) {}
       S.dirty = false; S.open = ref.id; toast('Order saved'); location.hash = '#order'; calSync([S.orders.find(x => x.id === ref.id)]);
@@ -778,17 +836,27 @@ function newSecret() { const a = new Uint8Array(18); crypto.getRandomValues(a); 
 function viewCalendar() {
   S.calSecret ||= (S.cal && S.cal.secret) || newSecret();
   const code = CAL_SCRIPT.replace('__SECRET__', S.calSecret), on = !!S.cal;
-  app.innerHTML = `<div id="calPage" class="stack">${dataNote().includes('bad') ? dataNote() : ''}<h2>Google Calendar</h2>
-  ${on ? `<div class="notice"><span><b>Connected.</b> Every order goes into the <b>Tina's Orders</b> calendar in your Google Calendar by itself: make day, post day, and delivery or collection day and time. Each one pops up a reminder at 8am five days before and at 8am on the day. When you change or cancel an order, the calendar changes too.</span></div>
+  app.innerHTML = `<div id="calPage" class="stack">${dataNote().includes('bad') ? dataNote() : ''}<h2>Calendar and email</h2>
+  ${on ? `<section class="card" id="mailCard"><h3>Sending emails</h3><p id="mailState" class="small">Checking whether your Google connection can send emails…</p>
+    <div id="mailSteps" hidden><p class="small">Your connection was set up before email sending was added, so it needs one update. Do this on a computer if you can.</p>
+    <ol style="margin:0;padding-left:20px;display:grid;gap:6px" class="small">
+      <li>Press <b>Copy the code</b> below (under <b>Change the connection</b>, step 1).</li>
+      <li>Open <a href="https://script.google.com/home" target="_blank" rel="noopener">script.google.com</a> and open the project you made for your calendar.</li>
+      <li>Delete what's in the box, paste the new code, then press the save icon.</li>
+      <li>At the top, pick <b>setUp</b> and press <b>Run</b>. Google asks for permission again, now to send email: choose your account, then <b>Advanced</b>, then <b>Go to … (unsafe)</b>, then <b>Allow</b>.</li>
+      <li>Press <b>Deploy</b>, then <b>Manage deployments</b>. Press the pencil, set <b>Version</b> to <b>New version</b>, and press <b>Deploy</b>. Your link stays the same, so there's nothing to paste here.</li>
+      <li>Come back and press <b>Check again</b>.</li></ol></div>
+    <div class="row"><button type="button" id="mailCheck">Check again</button></div></section>
+  <div class="notice"><span><b>Connected.</b> Every order goes into the <b>Tina's Orders</b> calendar in your Google Calendar by itself: make day, post day, and delivery or collection day and time. Each one pops up a reminder at 8am five days before and at 8am on the day. When you change or cancel an order, the calendar changes too.</span></div>
   <div class="row"><button class="primary" id="calNow">Update my calendar now</button></div><p class="small muted" id="calMsg" role="status"></p>
-  <details class="card"><summary>Change the connection</summary><div class="stack" style="margin-top:10px">` : `<p>Do this once, on a computer if you can. It takes about 5 minutes. After that, every order goes into your Google Calendar by itself, with reminders 5 days before and on the day.</p>`}
+  <details class="card"><summary>Change the connection</summary><div class="stack" style="margin-top:10px">` : `<p>Do this once, on a computer if you can. It takes about 5 minutes. After that, every order goes into your Google Calendar by itself, with reminders 5 days before and on the day, and you can send quote emails from your Gmail straight from the order book.</p>`}
   <section class="card"><h3>1. Copy your calendar code</h3><p class="small muted">It has your own secret key in it, so keep it to yourself.</p>
     <textarea id="calCode" readonly style="font-family:monospace;font-size:12px;min-height:120px">${esc(code)}</textarea>
     <div class="row"><button id="calCopy" type="button">Copy the code</button></div></section>
   <section class="card"><h3>2. Put it in Google</h3><ol style="margin:0;padding-left:20px;display:grid;gap:6px">
-    <li>Open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a>, signed in to the Google account whose calendar you use. A new project opens.</li>
+    <li>Open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a>, signed in to your business Google account. A new project opens.</li>
     <li>Delete what's in the box, paste the code, then press the save icon.</li>
-    <li>At the top, pick <b>setUp</b> and press <b>Run</b>. Google asks for permission: choose your account, then <b>Advanced</b>, then <b>Go to … (unsafe)</b>, then <b>Allow</b>. This is your own code, so that's fine.</li>
+    <li>At the top, pick <b>setUp</b> and press <b>Run</b>. Google asks for permission to use your calendar and send email: choose your account, then <b>Advanced</b>, then <b>Go to … (unsafe)</b>, then <b>Allow</b>. This is your own code, so that's fine.</li>
     <li>Press <b>Deploy</b>, then <b>New deployment</b>. Press the cog and choose <b>Web app</b>. Set <b>Execute as</b> to <b>Me</b> and <b>Who has access</b> to <b>Anyone</b>. Press <b>Deploy</b>.</li>
     <li>Copy the <b>Web app URL</b> it shows you. It ends in <b>/exec</b>.</li></ol></section>
   <section class="card"><h3>3. Paste the link here</h3>
@@ -797,6 +865,11 @@ function viewCalendar() {
     <div class="row"><button class="primary" id="calSave" type="button">Connect and add all my orders</button></div></section>
   ${on ? '<div class="row"><button class="danger" id="calOff" type="button">Stop putting orders in my calendar</button></div></div></details>' : ''}</div>`;
   const q = id => app.querySelector('#' + id);
+  const mailCheck = async () => { const st = q('mailState'); if (!st) return; st.textContent = 'Checking…';
+    try { const d = await calPost(S.cal, {action: 'ping'}); const ok = !!d.mail; q('mailSteps').hidden = ok;
+      st.innerHTML = ok ? '<b>Ready.</b> Quote emails are sent from your Gmail, from <b>Tina\'s Bespoke Treats</b>, with your payment details picture attached.' : '<b>One update needed.</b> Follow these steps once.'; }
+    catch (x) { st.textContent = "Google didn't answer. Check your connection and press Check again."; } };
+  q('mailCheck')?.addEventListener('click', mailCheck); mailCheck();
   q('calCopy').onclick = async () => { try { await navigator.clipboard.writeText(code); toast('Code copied'); } catch (e) { q('calCode').select(); toast('Press and hold to copy'); } };
   q('calNow')?.addEventListener('click', async e => { e.target.disabled = true; q('calMsg').textContent = 'Updating…';
     try { await calAll(false); q('calMsg').textContent = 'Your calendar is up to date.'; } catch (x) { q('calMsg').textContent = "That didn't work: " + x.message + '. Check your connection and try again.'; } e.target.disabled = false; });
@@ -838,7 +911,7 @@ function go() {
   if (r === 'enquiry-new') { render(); viewEnquiryNew(); window.scrollTo(0, 0); return; }
   if (r.startsWith('enquiry/')) S.enqTyping = false;
   if (r === 'calendar') { render(); window.scrollTo(0, 0); return; }
-  if (r === 'edit') { const o = S.orders.find(x => x.id === S.open); if (!o) { location.hash = '#orders'; return; } render(); viewForm(JSON.parse(JSON.stringify(o))); window.scrollTo(0, 0); return; }
+  if (r === 'edit') { const o = S.orders.find(x => x.id === S.open); if (!o) { location.hash = '#orders'; return; } const dr = getDraft(EDIT_DRAFT + o.id), base = JSON.parse(JSON.stringify(o)); if (dr && dr._base === (o.updatedAt || '')) { delete dr._base; Object.assign(base, dr); setTimeout(() => toast('Your unsaved changes are back'), 300); } render(); viewForm(base); window.scrollTo(0, 0); return; }
   S.dirty = false; render(); window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', () => { if (S.db) go(); });
