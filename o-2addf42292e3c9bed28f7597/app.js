@@ -9,7 +9,7 @@ const DRAFT = 'tina-order-draft', EDIT_DRAFT = 'tina-order-edit-', ENQ_DRAFT = '
 const getDraft = k => { try { return JSON.parse(localStorage.getItem(k)) || null; } catch (e) { return null; } };
 const putDraft = (k, v) => { try { v ? localStorage.setItem(k, JSON.stringify(v)) : localStorage.removeItem(k); return true; } catch (e) { return false; } };
 const CAL_ID = '00000000-0000-4000-8000-0000000ca1e0', CAL_LAST = 'tina-cal-synced', PAY_ID = '00000000-0000-4000-8000-0000000a1d00';
-const CAL_SCRIPT = "// Tina's Order Book -> Google Calendar and Gmail. Paste all of this into your Apps Script project.\nconst SECRET = '__SECRET__';\nconst CAL_NAME = \"Tina's Orders\";\nconst TZ = 'Europe/London';\n\nfunction doGet() { return out_({ok: true, name: CAL_NAME, mail: true}); }\n\nfunction doPost(e) {\n  let body;\n  try { body = JSON.parse(e.postData.contents); } catch (x) { return out_({ok: false, error: 'bad request'}); }\n  if (body.secret !== SECRET) return out_({ok: false, error: 'wrong secret'});\n  if (body.action === 'ping') return out_({ok: true, mail: true});\n  if (body.action === 'mail') return mail_(body);\n  const lock = LockService.getScriptLock();\n  lock.waitLock(60000);\n  try {\n    const cal = calendar_(), byOrder = {};\n    cal.getEvents(new Date(2020, 0, 1), new Date(2040, 0, 1)).forEach(function (ev) {\n      const id = ev.getTag('tbOrder');\n      if (id) (byOrder[id] = byOrder[id] || []).push(ev);\n    });\n    const seen = {};\n    let changed = 0;\n    (body.orders || []).forEach(function (o) {\n      seen[o.id] = true;\n      const old = byOrder[o.id] || [], events = o.events || [];\n      if (old.length === events.length && old.every(function (ev) { return ev.getTag('tbSig') === o.sig; })) return;\n      old.forEach(function (ev) { ev.deleteEvent(); });\n      events.forEach(function (x) {\n        const start = Utilities.parseDate(x.date + ' ' + x.time, TZ, 'yyyy-MM-dd HH:mm');\n        const ev = cal.createEvent(x.title, start, new Date(start.getTime() + x.mins * 60000), {description: x.details || '', location: x.location || ''});\n        ev.setTag('tbOrder', o.id); ev.setTag('tbSig', o.sig);\n        ev.removeAllReminders();\n        (x.reminders || []).forEach(function (m) { ev.addPopupReminder(m); });\n      });\n      changed++;\n    });\n    if (body.full) Object.keys(byOrder).forEach(function (id) {\n      if (!seen[id]) { byOrder[id].forEach(function (ev) { ev.deleteEvent(); }); changed++; }\n    });\n    return out_({ok: true, changed: changed});\n  } catch (x) {\n    return out_({ok: false, error: String(x && x.message || x)});\n  } finally {\n    lock.releaseLock();\n  }\n}\n\nfunction calendar_() {\n  const found = CalendarApp.getCalendarsByName(CAL_NAME)[0];\n  return found || CalendarApp.createCalendar(CAL_NAME, {color: CalendarApp.Color.PINK, timeZone: TZ});\n}\n\n// Sends an email from your Gmail, with any pictures attached.\nfunction mail_(b) {\n  try {\n    const to = String(b.to || '').trim();\n    if (!/^[^\\s@,;]+@[^\\s@,;]+\\.[^\\s@,;]+$/.test(to)) return out_({ok: false, error: 'bad email address'});\n    const files = (b.attachments || []).slice(0, 8).map(function (f) {\n      return Utilities.newBlob(Utilities.base64Decode(f.data), f.type || 'image/jpeg', f.name || 'picture.jpg');\n    });\n    GmailApp.sendEmail(to, String(b.subject || \"Tina's Bespoke Treats\").slice(0, 200), String(b.body || ''), {name: \"Tina's Bespoke Treats\", attachments: files});\n    return out_({ok: true, sent: true});\n  } catch (x) {\n    return out_({ok: false, error: String(x && x.message || x)});\n  }\n}\n\n// Press Run on this once in the editor so Google asks for permission to use your calendar and send email.\nfunction setUp() { calendar_(); GmailApp.getAliases(); }\n\nfunction out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }\n";
+const CAL_SCRIPT = "// Tina's Order Book -> Google Calendar and Gmail. Paste all of this into your Apps Script project.\nconst SECRET = '__SECRET__';\nconst CAL_NAME = \"Tina's Orders\";\nconst TZ = 'Europe/London';\n\nfunction doGet() { return out_({ok: true, name: CAL_NAME, mail: true}); }\n\nfunction doPost(e) {\n  let body;\n  try { body = JSON.parse(e.postData.contents); } catch (x) { return out_({ok: false, error: 'bad request'}); }\n  if (body.secret !== SECRET) return out_({ok: false, error: 'wrong secret'});\n  if (body.action === 'ping') return out_({ok: true, mail: true, thread: true});\n  if (body.action === 'mail') return mail_(body);\n  if (body.action === 'thread') return thread_(body);\n  const lock = LockService.getScriptLock();\n  lock.waitLock(60000);\n  try {\n    const cal = calendar_(), byOrder = {};\n    cal.getEvents(new Date(2020, 0, 1), new Date(2040, 0, 1)).forEach(function (ev) {\n      const id = ev.getTag('tbOrder');\n      if (id) (byOrder[id] = byOrder[id] || []).push(ev);\n    });\n    const seen = {};\n    let changed = 0;\n    (body.orders || []).forEach(function (o) {\n      seen[o.id] = true;\n      const old = byOrder[o.id] || [], events = o.events || [];\n      if (old.length === events.length && old.every(function (ev) { return ev.getTag('tbSig') === o.sig; })) return;\n      old.forEach(function (ev) { ev.deleteEvent(); });\n      events.forEach(function (x) {\n        const start = Utilities.parseDate(x.date + ' ' + x.time, TZ, 'yyyy-MM-dd HH:mm');\n        const ev = cal.createEvent(x.title, start, new Date(start.getTime() + x.mins * 60000), {description: x.details || '', location: x.location || ''});\n        ev.setTag('tbOrder', o.id); ev.setTag('tbSig', o.sig);\n        ev.removeAllReminders();\n        (x.reminders || []).forEach(function (m) { ev.addPopupReminder(m); });\n      });\n      changed++;\n    });\n    if (body.full) Object.keys(byOrder).forEach(function (id) {\n      if (!seen[id]) { byOrder[id].forEach(function (ev) { ev.deleteEvent(); }); changed++; }\n    });\n    return out_({ok: true, changed: changed});\n  } catch (x) {\n    return out_({ok: false, error: String(x && x.message || x)});\n  } finally {\n    lock.releaseLock();\n  }\n}\n\nfunction calendar_() {\n  const found = CalendarApp.getCalendarsByName(CAL_NAME)[0];\n  return found || CalendarApp.createCalendar(CAL_NAME, {color: CalendarApp.Color.PINK, timeZone: TZ});\n}\n\n// Sends an email from your Gmail, with any pictures attached.\nfunction mail_(b) {\n  try {\n    const to = String(b.to || '').trim();\n    if (!/^[^\\s@,;]+@[^\\s@,;]+\\.[^\\s@,;]+$/.test(to)) return out_({ok: false, error: 'bad email address'});\n    const files = (b.attachments || []).slice(0, 8).map(function (f) {\n      return Utilities.newBlob(Utilities.base64Decode(f.data), f.type || 'image/jpeg', f.name || 'picture.jpg');\n    });\n    const opts = {name: \"Tina's Bespoke Treats\", attachments: files}, text = String(b.body || '');\n    let threaded = false;\n    try { const req = latestFrom_(to); if (req) { req.reply(text, opts); threaded = true; } } catch (x) {}\n    if (!threaded) GmailApp.sendEmail(to, String(b.subject || \"Tina's Bespoke Treats\").slice(0, 200), text, opts);\n    return out_({ok: true, sent: true, threaded: threaded});\n  } catch (x) {\n    return out_({ok: false, error: String(x && x.message || x)});\n  }\n}\n\n// The newest email from this customer, or about their request (reply-to them), so a reply follows on in the same chain.\nfunction latestFrom_(to) {\n  const lc = to.toLowerCase();\n  let best = null, when = 0;\n  GmailApp.search('\"' + to + '\" newer_than:365d', 0, 20).forEach(function (t) {\n    t.getMessages().forEach(function (m) {\n      const fr = (m.getFrom() || '').toLowerCase(), rt = (m.getReplyTo() || '').toLowerCase();\n      if ((fr.indexOf(lc) >= 0 || rt.indexOf(lc) >= 0) && m.getDate().getTime() > when) { best = m; when = m.getDate().getTime(); }\n    });\n  });\n  return best;\n}\n\n// Every email to or from this customer in the last year, oldest first.\nfunction thread_(b) {\n  try {\n    const to = String(b.email || '').trim(), lc = to.toLowerCase(), list = [];\n    if (!to) return out_({ok: true, messages: []});\n    GmailApp.search('\"' + to + '\" newer_than:365d', 0, 30).forEach(function (t) {\n      t.getMessages().forEach(function (m) {\n        const fr = (m.getFrom() || '').toLowerCase(), rt = (m.getReplyTo() || '').toLowerCase(), tt = ((m.getTo() || '') + ' ' + (m.getCc() || '')).toLowerCase();\n        if (fr.indexOf(lc) < 0 && rt.indexOf(lc) < 0 && tt.indexOf(lc) < 0) return;\n        list.push({id: m.getId(), at: m.getDate().toISOString(), mine: fr.indexOf(lc) < 0 && rt.indexOf(lc) < 0, subject: m.getSubject(), text: clean_(m.getPlainBody()), files: m.getAttachments().length});\n      });\n    });\n    list.sort(function (x, y) { return x.at < y.at ? -1 : 1; });\n    return out_({ok: true, messages: list.slice(-60)});\n  } catch (x) {\n    return out_({ok: false, error: String(x && x.message || x)});\n  }\n}\n\nfunction clean_(t) {\n  const out = [];\n  const lines = String(t || '').replace(/\\r/g, '').split('\\n');\n  for (let i = 0; i < lines.length; i++) {\n    const l = lines[i];\n    if (/^On .+wrote:\\s*$/.test(l) || /^-+ ?Original Message/i.test(l) || /^>/.test(l) || (/^From: /.test(l) && out.length)) break;\n    out.push(l);\n  }\n  return out.join('\\n').trim().slice(0, 3000);\n}\n\n// Press Run on this once in the editor so Google asks for permission to use your calendar and send email.\nfunction setUp() { calendar_(); GmailApp.getAliases(); }\n\nfunction out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }\n";
 const today = () => iso(new Date());
 S.ym = today().slice(0, 7); S.year = today().slice(0, 4);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -207,6 +207,7 @@ function viewEnquiry() {
   let draft = getDraft(dKey) || {};
   if (draft.msg != null && draft.msg === draft.base && draft.base !== fresh) { draft.msg = null; draft.base = null; }
   const draftStale = draft.msg != null && draft.base !== fresh;
+  const wq = (e.working_quote && typeof e.working_quote === 'object') ? e.working_quote : {};
   const allergy = r.allergy === 'yes' ? [r.allergyDetails, r.mayContain].filter(Boolean).join(' · ') : '';
   const insta = (e.answers || []).flatMap(g => g.rows || []).find(x => x[0] === 'Instagram');
   const linkedOrder = e.order_id && S.orders.find(o => o.id === e.order_id);
@@ -223,17 +224,26 @@ function viewEnquiry() {
     ${qs.length ? `<div class="stack">${qs.map((q, i) => `<div class="quote ${q.accepted ? 'ok' : ''}"><div class="row between"><b>${fmt(q.date)} · ${gbp(P(q.price))}</b>${q.accepted ? '<span class="pill done">Accepted</span>' : `<button class="link" data-acc="${i}">Customer accepted this</button>`}</div><div>${esc(q.includes)}</div>${P(q.delivery) ? `<div class="muted small">Includes ${gbp(P(q.delivery))} delivery</div>` : ''}${q.note ? `<div class="muted small">${esc(q.note)}</div>` : ''}<button class="link small" data-delq="${i}">Remove</button></div>`).join('')}</div>`
       : '<p class="muted">No quote yet. Work one out with Price it, or type one in below.</p>'}
     <div class="row"><button class="primary" id="ePrice">Work out a price with Price it</button></div>
-    <details class="howto" id="qAdd"><summary>Type a quote in yourself</summary><form id="qf" class="grid" novalidate>
+    <div class="workq"><h4>Your working quote</h4><p class="hint">Only you can see this. It saves as you type, so you can keep changing it as ${esc(firstName(e))} changes the order. When it's final, press <b>Save quote</b>.</p><form id="qf" class="grid" novalidate>
       ${moneyInput('qPrice', '', 'Total price')}${moneyInput('qDel', '', 'Of which delivery', 'Leave blank if collection')}
-      <div class="f" style="grid-column:1/-1"><label for="qInc">What's included</label><textarea id="qInc" rows="3" placeholder="e.g. 30 hand-piped biscuits, individually wrapped with gold bows, collection">${esc(draft.qInc ?? (enqQty(e) ? enqQty(e) + ' × ' + (e.product || 'biscuits').toLowerCase() : ''))}</textarea></div>
+      <div class="f" style="grid-column:1/-1"><label for="qInc">What's included</label><textarea id="qInc" rows="3" placeholder="e.g. 30 hand-piped biscuits, individually wrapped with gold bows, collection">${esc(wq.qInc ?? draft.qInc ?? (enqQty(e) ? enqQty(e) + ' × ' + (e.product || 'biscuits').toLowerCase() : ''))}</textarea></div>
       <div class="f" style="grid-column:1/-1"><label for="qNote">Note to the customer (optional)</label><input id="qNote" placeholder="e.g. A simpler design would bring this down to £70"></div>
-      <p class="err" id="qErr" role="alert" hidden></p><div><button class="primary" type="submit">Save quote</button></div></form></details>
+      <p class="err" id="qErr" role="alert" hidden></p><div><button class="primary" type="submit">Save quote</button> <span class="hint" id="qSaved"></span></div></form></div>
+    ${qs.length && !linkedOrder ? '<div class="row"><button type="button" class="primary" id="qToOrder">Turn the ' + (qs.some(x => x.accepted) ? 'accepted' : 'latest') + ' quote into an order</button></div>' : ''}
+  </section>
+
+  <section class="card"><div class="row between"><h3>Conversation with ${esc(firstName(e))}</h3>${e.email && S.cal ? '<button type="button" class="link small" id="cvRefresh">Check for new emails</button>' : ''}</div>
+    <div class="convo" id="convo"></div><p class="hint" id="cvNote"></p>
+    <details class="howto" id="cvAddBox"><summary>Add a message from WhatsApp, Instagram or a call</summary><div class="stack" style="margin-top:8px">
+      <div class="row"><select id="cvWho" aria-label="Who sent it" style="width:auto"><option value="them">From ${esc(firstName(e))}</option><option value="me">From me</option></select>
+      <select id="cvCh" aria-label="Where" style="width:auto"><option>WhatsApp</option><option>Instagram</option><option>Phone call</option><option>Text message</option><option>Other</option></select></div>
+      <textarea id="cvText" rows="3" placeholder="Paste or type the message"></textarea><div><button type="button" id="cvAdd">Add to conversation</button></div></div></details>
   </section>
 
   <section class="card"><h3>Reply to ${esc(firstName(e))}</h3>
     <p class="hint">Check the message and change anything you like. What you type is kept, even if you leave this page.</p>
     ${draftStale ? `<div class="notice warn"><span>Your quote has changed since you started typing this message.</span><button type="button" id="eFresh">Use the new quote message</button></div>` : ''}
-    ${e.email ? `<div class="f"><label for="eSubj">Subject</label><input type="text" id="eSubj" value="${esc(draft.subject || "Your quote from Tina's Bespoke Treats")}"></div>` : ''}
+    ${e.email ? `<div class="f"><label for="eSubj">Subject</label><input type="text" id="eSubj" value="${esc(draft.subject || "Your quote from Tina's Bespoke Treats")}"><span class="hint">If ${esc(firstName(e))} has emailed you before, your reply follows on in the same email chain, so this subject is only used for a brand new email.</span></div>` : ''}
     <textarea id="eMsg" rows="11" aria-label="Message to the customer">${esc(draft.msg ?? enqMessage(e))}</textarea>
     <span class="hint" id="eDrafted">${draft.msg != null ? 'Your message is saved on this device.' : ''}</span>
     ${e.email ? `<div class="stack" style="gap:6px"><h3>Pictures sent with this email</h3>
@@ -263,8 +273,16 @@ function viewEnquiry() {
     const els = files.map(f => { const w = document.createElement('div'); w.className = 'thumb'; if (/\.(pdf|svg)$/i.test(f.path)) { const a = document.createElement('a'); a.textContent = f.name || 'File'; a.target = '_blank'; a.rel = 'noopener'; w.append(a); box.append(w); return a; } const i = new Image(); i.alt = f.label || 'Customer photo'; i.onclick = () => i.src && lightbox(i.src); w.append(i); box.append(w); return i; });
     TB.signedFrom(ENQ_BUCKET, files.map(f => f.path)).then(m => files.forEach((f, n) => { if (!m[f.path]) return; if (els[n].tagName === 'A') els[n].href = m[f.path]; else els[n].src = m[f.path]; })).catch(() => toast("Photos couldn't load. Check your connection."));
   }
-  ['qPrice', 'qDel', 'qNote'].forEach(k => { const el = app.querySelector('#' + k); if (el && draft[k] != null) el.value = draft[k]; });
-  if (draft.qPrice || draft.qDel || draft.qNote || draft.qInc != null) app.querySelector('#qAdd').open = true;
+  ['qPrice', 'qDel', 'qNote'].forEach(k => { const el = app.querySelector('#' + k); const v = wq[k] ?? draft[k]; if (el && v != null) el.value = v; });
+  let wqTimer;
+  app.querySelectorAll('#qf input, #qf textarea').forEach(el => el.addEventListener('input', () => {
+    clearTimeout(wqTimer); const s = app.querySelector('#qSaved'); if (s) s.textContent = '';
+    if (!('working_quote' in e)) { if (s) s.textContent = 'Kept on this device'; return; }
+    wqTimer = setTimeout(async () => { const v = k => app.querySelector('#' + k)?.value; if (!app.querySelector('#qf')) return;
+      const data = {qPrice: v('qPrice'), qDel: v('qDel'), qInc: v('qInc'), qNote: v('qNote')};
+      try { await TB.patchRow('enquiries', e.id, {working_quote: data}); e.working_quote = data; const t = app.querySelector('#qSaved'); if (t) t.textContent = 'Working quote saved'; } catch (x) { const t = app.querySelector('#qSaved'); if (t) t.textContent = 'Kept on this device'; } }, 1000);
+  }));
+  app.querySelector('#qToOrder')?.addEventListener('click', () => app.querySelector('#eOrder')?.click());
   const keepDraft = () => {
     const v = k => app.querySelector('#' + k)?.value;
     const msgNow = v('eMsg'), d = {msg: msgNow === fresh && !draft.msg ? null : msgNow, base: draft.msg != null && msgNow !== fresh ? (draft.base ?? fresh) : fresh, subject: v('eSubj'), notes: v('eNotes'), qPrice: v('qPrice'), qDel: v('qDel'), qInc: v('qInc'), qNote: v('qNote')};
@@ -274,6 +292,26 @@ function viewEnquiry() {
   app.querySelectorAll('#qf input, #qf textarea, #eMsg, #eNotes, #eSubj').forEach(el => el.addEventListener('input', () => { S.enqTyping = true; keepDraft(); }));
   app.querySelector('#eNotes').addEventListener('input', () => { clearTimeout(noteTimer); noteTimer = setTimeout(async () => { const n = app.querySelector('#eNotes'); if (n && await enqSave(e.id, {notes: n.value})) { const s = app.querySelector('#eNoteSaved'); if (s) s.textContent = 'Notes saved'; } }, 1200); });
   app.querySelector('#eFresh')?.addEventListener('click', () => { app.querySelector('#eMsg').value = fresh; draft.msg = null; draft.base = fresh; putDraft(dKey, {...draft, msg: null, base: fresh}); app.querySelector('#eFresh').closest('.notice').remove(); toast('Message updated with the new quote'); });
+  const log = Array.isArray(e.messages) ? e.messages : [], hasLog = 'messages' in e;
+  let mail = null, mailState = e.email ? (S.cal ? 'loading' : 'off') : 'none';
+  const drawConvo = () => {
+    const box = app.querySelector('#convo'); if (!box || !box.isConnected) return;
+    const items = [{at: e.created_at, mine: false, channel: ENQ_SOURCES[e.source] || 'Website', text: 'Sent an enquiry' + (e.product ? ' for ' + e.product.toLowerCase() : '') + (e.date_needed ? ', needed for ' + fmt(e.date_needed) : '') + '.', sys: true},
+      ...log, ...(mail || []).map(x => ({...x, channel: 'Email'}))].sort((x, y) => String(x.at).localeCompare(String(y.at)));
+    box.innerHTML = items.map(x => `<div class="msg ${x.mine ? 'me' : ''} ${x.sys ? 'sys' : ''}"><small>${x.mine ? 'You' : esc(firstName(e))} · ${esc(x.channel || '')} · ${new Date(x.at).toLocaleString('en-GB', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})}${x.files ? ' · ' + x.files + ' attachment' + (x.files > 1 ? 's' : '') : ''}</small><div class="body">${esc(x.text || x.subject || '')}</div></div>`).join('');
+    box.scrollTop = box.scrollHeight;
+    app.querySelector('#cvNote').innerHTML = mailState === 'loading' ? 'Loading emails from your Gmail…' : mailState === 'old' ? 'To see emails here, your Google connection needs a quick update. Press <b>Calendar and email</b> at the bottom of the page.' : mailState === 'off' ? 'Connect Google (<b>Calendar and email</b> at the bottom of the page) to see your emails with ' + esc(firstName(e)) + ' here.' : mailState === 'fail' ? "Your emails couldn't load. Press Check for new emails to try again." : !hasLog ? 'To keep WhatsApp and Instagram messages here, run the one-line Supabase update.' : '';
+  };
+  const loadMail = async () => { if (!e.email || !S.cal) return drawConvo(); mailState = 'loading'; drawConvo();
+    try { const d = await calPost(S.cal, {action: 'thread', email: e.email}); if (!Array.isArray(d.messages)) mailState = 'old'; else { mail = d.messages; mailState = 'ok'; } }
+    catch (x) { mailState = x.message === 'wrong secret' ? 'old' : 'fail'; }
+    drawConvo(); };
+  loadMail();
+  const addLog = async item => { if (!hasLog) { drawConvo(); return false; } log.push({at: new Date().toISOString(), ...item}); if (await enqSave(e.id, {messages: log})) { drawConvo(); return true; } log.pop(); return false; };
+  app.querySelector('#cvRefresh')?.addEventListener('click', loadMail);
+  app.querySelector('#cvAdd').onclick = async () => { const t = app.querySelector('#cvText'); if (!t.value.trim()) return toast('Type or paste the message first.');
+    if (!hasLog) return toast("This can't be saved until the Supabase update is done.");
+    if (await addLog({mine: app.querySelector('#cvWho').value === 'me', channel: app.querySelector('#cvCh').value, text: t.value.trim()})) { t.value = ''; app.querySelector('#cvAddBox').open = false; toast('Added to the conversation'); } };
   app.querySelector('#est').onchange = ev => enqSave(e.id, {status: ev.target.value}, 'Status changed to ' + ENQ_STATUS[ev.target.value]);
   const notes = app.querySelector('#eNotes');
   notes.onchange = async () => { if (await enqSave(e.id, {notes: notes.value})) { const s = app.querySelector('#eNoteSaved'); if (s) s.textContent = 'Notes saved'; } };
@@ -285,7 +323,6 @@ function viewEnquiry() {
     const price = app.querySelector('#qPrice').value, inc = app.querySelector('#qInc').value.trim(), err = app.querySelector('#qErr');
     if (!(P(price) > 0)) { err.textContent = 'Add the total price.'; err.hidden = false; return; }
     if (!inc) { err.textContent = "Add what's included."; err.hidden = false; return; }
-    putDraft(dKey, {...draft, qPrice: null, qDel: null, qInc: null, qNote: null});
     saveQuotes([...qs, {date: today(), price: (P(price) / 100).toFixed(2), delivery: P(app.querySelector('#qDel').value) ? (P(app.querySelector('#qDel').value) / 100).toFixed(2) : '', includes: inc, note: app.querySelector('#qNote').value.trim(), qty: enqQty(e)}], {status: 'quoted'}, 'Quote saved. The reply message has been updated.');
   };
   app.querySelector('#ePrice').onclick = () => {
@@ -328,19 +365,17 @@ function viewEnquiry() {
       const attachments = [];
       if (payBlob) attachments.push({name: "Tina's Bespoke Treats payment details.jpg", type: 'image/jpeg', data: await b64(payBlob)});
       for (let i = 0; i < extra.length; i++) attachments.push({name: 'Picture ' + (i + 1) + '.jpg', type: 'image/jpeg', data: await b64(extra[i].blob)});
-      const d = await calPost(S.cal, {action: 'mail', to: e.email, subject: app.querySelector('#eSubj').value.trim() || "Your quote from Tina's Bespoke Treats", body: msg(), attachments});
+      var d = await calPost(S.cal, {action: 'mail', to: e.email, subject: app.querySelector('#eSubj').value.trim() || "Your quote from Tina's Bespoke Treats", body: msg(), attachments});
       if (!d.sent) { putDraft(MAIL_OK, null); return fail('Your Google connection needs a quick update before it can send emails. Press Calendar and email at the bottom of the page and follow the steps there.'); }
     } catch (x) { return fail(x.message === 'wrong secret' ? 'Your Google connection needs updating. Press Calendar and email at the bottom of the page.' : "The email didn't send: " + x.message + '. Check your connection and try again. Your message is still here.'); }
     putDraft(dKey, null);
     S.enqTyping = false;
-    const when = new Date().toLocaleString('en-GB', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
-    const notes = ((app.querySelector('#eNotes').value || '').trim() + '\nEmail sent ' + when + (extra.length || payBlob ? ' with ' + (extra.length + (payBlob ? 1 : 0)) + ' picture(s)' : '') + '.').trim();
-    await enqSave(e.id, {notes, ...(st === 'new' && qs.length ? {status: 'quoted'} : {})});
-    toast('Email sent to ' + e.email);
+    if (st === 'new' && qs.length) await enqSave(e.id, {status: 'quoted'});
+    toast(d.threaded ? 'Email sent to ' + e.email + ', in the same chain as their request' : 'Email sent to ' + e.email);
     viewEnquiry();
   });
-  app.querySelector('#eWa')?.addEventListener('click', () => { window.open('https://wa.me/' + waNumber(e.phone) + '?text=' + encodeURIComponent(msg()), '_blank', 'noopener'); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
-  app.querySelector('#eCopy').onclick = async () => { try { await navigator.clipboard.writeText(msg()); toast('Message copied. Paste it into their Instagram messages.'); } catch (x) { const t = app.querySelector('#eMsg'); t.select(); toast('Select the message and copy it.'); } };
+  app.querySelector('#eWa')?.addEventListener('click', () => { window.open('https://wa.me/' + waNumber(e.phone) + '?text=' + encodeURIComponent(msg()), '_blank', 'noopener'); addLog({mine: true, channel: 'WhatsApp', text: msg()}); putDraft(dKey, null); if (st === 'new' && qs.length) enqSave(e.id, {status: 'quoted'}); });
+  app.querySelector('#eCopy').onclick = async () => { addLog({mine: true, channel: 'Instagram', text: msg()}); putDraft(dKey, null); try { await navigator.clipboard.writeText(msg()); toast('Message copied and added to the conversation. Paste it into their Instagram messages.'); } catch (x) { const t = app.querySelector('#eMsg'); t.select(); toast('Select the message and copy it.'); } };
   const payPick = app.querySelector('#payPick');
   payPick.onchange = async () => {
     const f = payPick.files[0]; if (!f) return;
@@ -838,7 +873,7 @@ function viewCalendar() {
   const code = CAL_SCRIPT.replace('__SECRET__', S.calSecret), on = !!S.cal;
   app.innerHTML = `<div id="calPage" class="stack">${dataNote().includes('bad') ? dataNote() : ''}<h2>Calendar and email</h2>
   ${on ? `<section class="card" id="mailCard"><h3>Sending emails</h3><p id="mailState" class="small">Checking whether your Google connection can send emails…</p>
-    <div id="mailSteps" hidden><p class="small">Your connection was set up before email sending was added, so it needs one update. Do this on a computer if you can.</p>
+    <div id="mailSteps" hidden><p class="small">Your connection needs one update so it can send emails and show your email conversations with each customer. Do this on a computer if you can.</p>
     <ol style="margin:0;padding-left:20px;display:grid;gap:6px" class="small">
       <li>Press <b>Copy the code</b> below (under <b>Change the connection</b>, step 1).</li>
       <li>Open <a href="https://script.google.com/home" target="_blank" rel="noopener">script.google.com</a> and open the project you made for your calendar.</li>
@@ -866,8 +901,8 @@ function viewCalendar() {
   ${on ? '<div class="row"><button class="danger" id="calOff" type="button">Stop putting orders in my calendar</button></div></div></details>' : ''}</div>`;
   const q = id => app.querySelector('#' + id);
   const mailCheck = async () => { const st = q('mailState'); if (!st) return; st.textContent = 'Checking…';
-    try { const d = await calPost(S.cal, {action: 'ping'}); const ok = !!d.mail; q('mailSteps').hidden = ok;
-      st.innerHTML = ok ? '<b>Ready.</b> Quote emails are sent from your Gmail, from <b>Tina\'s Bespoke Treats</b>, with your payment details picture attached.' : '<b>One update needed.</b> Follow these steps once.'; }
+    try { const d = await calPost(S.cal, {action: 'ping'}); const ok = !!(d.mail && d.thread); q('mailSteps').hidden = ok;
+      st.innerHTML = ok ? '<b>Ready.</b> Quote emails are sent from your Gmail, from <b>Tina\'s Bespoke Treats</b>, with your payment details picture attached. Replies follow on in the same email chain as the customer\'s request.' : '<b>One update needed.</b> Follow these steps once.'; }
     catch (x) { st.textContent = "Google didn't answer. Check your connection and press Check again."; } };
   q('mailCheck')?.addEventListener('click', mailCheck); mailCheck();
   q('calCopy').onclick = async () => { try { await navigator.clipboard.writeText(code); toast('Code copied'); } catch (e) { q('calCode').select(); toast('Press and hold to copy'); } };
